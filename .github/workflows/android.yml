@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (robust)
 
 on:
   workflow_dispatch:
@@ -10,25 +10,129 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
-      - name: Télécharger le projet
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Installer Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Donner les permissions à Gradle
-        run: chmod +x ./gradlew
+      - name: Detect project directory and gradle wrapper
+        id: detect
+        run: |
+          set -euo pipefail
+          # Find gradlew first
+          gw=$(git ls-files | grep -E '(^|/)(gradlew)$' | head -n1 || true)
+          if [ -n "$gw" ]; then
+            pd=$(dirname "$gw")
+            has_gradlew=true
+          else
+            # Look for settings.gradle(.kts) or build.gradle(.kts)
+            f=$(git ls-files | grep -E '(^|/)(settings\.gradle|settings\.gradle\.kts|build\.gradle|build\.gradle\.kts)$' | head -n1 || true)
+            if [ -n "$f" ]; then
+              pd=$(dirname "$f")
+            else
+              pd="."
+            fi
+            has_gradlew=false
+          fi
+          echo "project_dir=$pd" >> "$GITHUB_OUTPUT"
+          echo "has_gradlew=$has_gradlew" >> "$GITHUB_OUTPUT"
+          echo "PROJECT_DIR=$pd" >> "$GITHUB_ENV"
+          echo "HAS_GRADLEW=$has_gradlew" >> "$GITHUB_ENV"
+          echo "Detected project_dir=$pd, has_gradlew=$has_gradlew"
 
-      - name: Compiler l'APK
-        run: ./gradlew assembleDebug
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle*', '**/build.gradle*') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
 
-      - name: Envoyer l'APK
+      - name: Setup Android SDK (API 33 + build-tools)
+        uses: r0adkll/setup-android@v2
+        with:
+          api-level: 33
+          build-tools: 33.0.2
+          # if you need ndk/cmake add them here
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.tool_cache }}/android-sdk
+
+      - name: Ensure SDK licenses accepted
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.tool_cache }}/android-sdk
+        continue-on-error: true
+
+      - name: Make gradlew executable (if present)
+        if: ${{ steps.detect.outputs.has_gradlew == 'true' }}
+        run: |
+          chmod +x "${{ steps.detect.outputs.project_dir }}/gradlew"
+          ls -la "${{ steps.detect.outputs.project_dir }}/gradlew" || true
+
+      - name: Install Gradle (only if wrapper not present)
+        if: ${{ steps.detect.outputs.has_gradlew == 'false' }}
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: '8.4' # ajustez si besoin
+        id: gradle_install
+
+      - name: Print environment & diagnostics
+        run: |
+          echo "PROJECT_DIR='${{ steps.detect.outputs.project_dir }}'"
+          echo "HAS_GRADLEW='${{ steps.detect.outputs.has_gradlew }}'"
+          echo "Java version:"
+          java -version || true
+          echo "Gradle (if available):"
+          gradle --version || true
+          echo "Listing root files:"
+          ls -la
+          echo "Listing project dir:"
+          ls -la "${{ steps.detect.outputs.project_dir }}" || true
+
+      - name: Build with gradle wrapper
+        if: ${{ steps.detect.outputs.has_gradlew == 'true' }}
+        working-directory: ${{ steps.detect.outputs.project_dir }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --console=plain assembleDebug
+
+      - name: Build with installed Gradle
+        if: ${{ steps.detect.outputs.has_gradlew == 'false' }}
+        run: |
+          set -euo pipefail
+          # gradle action exposes gradle in PATH
+          gradle -p "${{ steps.detect.outputs.project_dir }}" --no-daemon --console=plain assembleDebug
+
+      - name: Show generated APKs (diagnostic)
+        run: |
+          echo "Looking for APKs..."
+          find . -type f -name "*.apk" -print || true
+
+      - name: Upload APK artifacts (all found apks)
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: app-apks
+          path: |
+            **/build/outputs/apk/**/*.apk
+            **/outputs/apk/**/*.apk
+
+      - name: Fail if no apk was produced
+        if: ${{ always() }}
+        run: |
+          set -e
+          found=$(find . -type f -name "*.apk" | wc -l || true)
+          echo "APK count: $found"
+          if [ "$found" -eq 0 ]; then
+            echo "No APK produced. See previous logs for errors."
+            exit 1
+          fi
