@@ -1,0 +1,6 @@
+{
+  "name": "Nora Cameroun",
+  "description": "Plateforme artisanale mettant en relation acheteurs, créateurs de contenu et administrateurs au Cameroun.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
