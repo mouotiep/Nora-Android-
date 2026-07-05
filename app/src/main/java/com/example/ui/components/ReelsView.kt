@@ -7,6 +7,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,14 +60,19 @@ fun ReelsView(
     var showCommentsReelId by remember { mutableStateOf<String?>(null) }
     var newCommentText by remember { mutableStateOf("") }
 
-    // Simulating auto views on active page
+    // Publish Reel Dialog State
+    var showPublishReelDialog by remember { mutableStateOf(false) }
+
+    // Unique user views check on active page
     LaunchedEffect(pagerState.currentPage) {
-        if (reels.isNotEmpty()) {
+        if (reels.isNotEmpty() && pagerState.currentPage < reels.size) {
             val activeReel = reels[pagerState.currentPage]
-            // Wait 4 seconds on the active page to simulate viewing, then reward
-            delay(4000)
-            viewModel.simulateViews(activeReel.id, 10)
-            Toast.makeText(context, "+10 Vues simulées ! Vous soutenez le créateur ${activeReel.creatorName}", Toast.LENGTH_SHORT).show()
+            val isNewView = viewModel.recordUniqueView(activeReel.id)
+            if (isNewView) {
+                Toast.makeText(context, "👁️ Nouvelle vue unique enregistrée pour ${activeReel.creatorName} !", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "👁️ Vous avez déjà vu ce Reel. (Vue unique conservée)", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -112,6 +120,26 @@ fun ReelsView(
                     },
                     onReport = { reportingReel = reel }
                 )
+            }
+        }
+
+        // Beautiful absolute-positioned floating publish button
+        FloatingActionButton(
+            onClick = { showPublishReelDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 16.dp, end = 16.dp),
+            containerColor = Color(0xFF10B981),
+            contentColor = Color.White,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Publier", modifier = Modifier.size(18.dp))
+                Text("Publier", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -435,6 +463,354 @@ fun ReelsView(
             }
         }
     }
+
+    // Interactive Media Upload & Cropping Dialog for Publishing Reels
+    if (showPublishReelDialog) {
+        var captionInput by remember { mutableStateOf("") }
+        var categoryInput by remember { mutableStateOf("Mode & Vêtements") }
+        var isVideoSelected by remember { mutableStateOf(true) } // true: Video, false: Photo
+        
+        // Simulating the imported file from phone
+        var selectedFileName by remember { mutableStateOf<String?>(null) }
+        
+        // Cropping states
+        var showCroppingControls by remember { mutableStateOf(false) }
+        var cropAspectRatio by remember { mutableStateOf("9:16") }
+        var cropZoomLevel by remember { mutableStateOf(1.0f) }
+        var cropRotationAngle by remember { mutableStateOf(0f) }
+        var videoStartSec by remember { mutableStateOf(0.0f) }
+        var videoEndSec by remember { mutableStateOf(15.0f) }
+
+        Dialog(onDismissRequest = { showPublishReelDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "Publier un Nouveau Reel 🎥",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Text(
+                        text = "Importez une vidéo ou photo de votre artisanat et ajustez le cadrage.",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Media Type Selector
+                    Text("Type de Fichier", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { isVideoSelected = true; selectedFileName = null; showCroppingControls = false },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
+                                contentColor = if (isVideoSelected) Color.White else Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.MovieFilter, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Séquence Vidéo", fontSize = 11.sp)
+                        }
+
+                        Button(
+                            onClick = { isVideoSelected = false; selectedFileName = null; showCroppingControls = false },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (!isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
+                                contentColor = if (!isVideoSelected) Color.White else Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Photo, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Photo / Image", fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Simulated File Upload Section
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .clickable {
+                                    // Simulate selecting a file from telephone gallery
+                                    selectedFileName = if (isVideoSelected) {
+                                        listOf("sculpture_bois.mp4", "tissage_pagne.mp4", "miel_recolte.mp4").random()
+                                    } else {
+                                        listOf("masque_bamoun.jpg", "collier_perles.jpg", "pagne_detail.jpg").random()
+                                    }
+                                    showCroppingControls = true
+                                }
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            if (selectedFileName == null) {
+                                Text("Télécharger depuis le téléphone", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                Text("Formats acceptés: MP4, MOV, JPG, PNG", fontSize = 10.sp, color = Color.Gray)
+                            } else {
+                                Text("Fichier importé avec succès !", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                Text(selectedFileName!!, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF334155))
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Cliquez pour changer de fichier", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+
+                    // Simulated Rogner (Cropping) Interface
+                    if (showCroppingControls && selectedFileName != null) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("Ajuster & Rogner le Fichier ✂️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Live visual preview box that represents the cropped content
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.DarkGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Represent the selected file simulated thumbnail with the zoom and rotation applied
+                            Column(
+                                modifier = Modifier
+                                    .graphicsLayer(
+                                        scaleX = cropZoomLevel,
+                                        scaleY = cropZoomLevel,
+                                        rotationZ = cropRotationAngle
+                                    ),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (isVideoSelected) Icons.Default.MovieFilter else Icons.Default.Photo,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = selectedFileName!!,
+                                    fontSize = 10.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Aspect Ratio overlay boundary simulator
+                            Box(
+                                modifier = Modifier
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0xFF10B981),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .align(Alignment.BottomEnd)
+                            ) {
+                                Text("Format: $cropAspectRatio", fontSize = 8.sp, color = Color.White)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Controls for Cropping (Aspect Ratio, Zoom, Rotate)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Aspect Ratio select
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("Recadrage:", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                listOf("9:16", "1:1", "4:5").forEach { ratio ->
+                                    val isSel = cropAspectRatio == ratio
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                            .clickable { cropAspectRatio = ratio }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    ) {
+                                        Text(ratio, fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                                    }
+                                }
+                            }
+
+                            // Zoom level slider
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Zoom: ${String.format("%.1f", cropZoomLevel)}x", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                Slider(
+                                    value = cropZoomLevel,
+                                    onValueChange = { cropZoomLevel = it },
+                                    valueRange = 1.0f..3.0f,
+                                    colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // Rotation Angle button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("Rotation:", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                listOf(0f, 90f, 180f, 270f).forEach { angle ->
+                                    val isSel = cropRotationAngle == angle
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                            .clickable { cropRotationAngle = angle }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    ) {
+                                        Text("${angle.toInt()}°", fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                                    }
+                                }
+                            }
+
+                            // Video-specific temporal trimming sliders (Début & Fin)
+                            if (isVideoSelected) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Divider(color = Color(0xFFE2E8F0))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("Rognage Temporel (Sélectionnez début et fin) ⏱️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Début: ${String.format("%.1f", videoStartSec)}s", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(72.dp))
+                                    Slider(
+                                        value = videoStartSec,
+                                        onValueChange = { videoStartSec = it.coerceAtMost(videoEndSec - 1f) },
+                                        valueRange = 0.0f..30.0f,
+                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Fin: ${String.format("%.1f", videoEndSec)}s", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(72.dp))
+                                    Slider(
+                                        value = videoEndSec,
+                                        onValueChange = { videoEndSec = it.coerceAtLeast(videoStartSec + 1f) },
+                                        valueRange = 1.0f..60.0f,
+                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Text(
+                                    text = "Durée du clip vidéo : ${String.format("%.1f", videoEndSec - videoStartSec)} secondes (Rogné)",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Text fields
+                    OutlinedTextField(
+                        value = captionInput,
+                        onValueChange = { captionInput = it },
+                        label = { Text("Légende de la vidéo / Description", fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text("Catégorie de l'Artisanat", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Mode & Vêtements", "Objets d'Art", "Alimentation").forEach { cat ->
+                            val isSel = categoryInput == cat
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                    .clickable { categoryInput = cat }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(cat, fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showPublishReelDialog = false }) { Text("Annuler") }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (selectedFileName == null) {
+                                    Toast.makeText(context, "Veuillez sélectionner et importer un fichier depuis votre téléphone", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                viewModel.publishReel(
+                                    caption = captionInput,
+                                    category = categoryInput,
+                                    mediaType = if (isVideoSelected) "Vidéo" else "Photo",
+                                    aspectRatio = cropAspectRatio,
+                                    zoomLevel = cropZoomLevel,
+                                    rotationAngle = cropRotationAngle
+                                )
+                                Toast.makeText(context, "Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
+                                showPublishReelDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Publier maintenant")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -446,6 +822,26 @@ fun ReelPageItem(
     onShare: () -> Unit,
     onReport: () -> Unit
 ) {
+    var downloadProgress by remember(reel.id) { mutableStateOf(0) }
+    var isStreamingFinished by remember(reel.id) { mutableStateOf(false) }
+
+    LaunchedEffect(reel.id) {
+        if (reel.mediaType == "Vidéo") {
+            downloadProgress = 0
+            isStreamingFinished = false
+            while (downloadProgress < 100) {
+                delay(70) // Simulates high-speed Cameroon internet streaming buffer
+                downloadProgress += (12..28).random()
+                if (downloadProgress >= 100) {
+                    downloadProgress = 100
+                    isStreamingFinished = true
+                }
+            }
+        } else {
+            isStreamingFinished = true
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -500,14 +896,62 @@ fun ReelPageItem(
                         .border(3.dp, Color(0xFF10B981), RoundedCornerShape(8.dp))
                         .background(Color.DarkGray)
                 ) {
-                    Icon(
-                        imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier
-                            .size(56.dp)
-                            .align(Alignment.Center)
-                    )
+                    if (reel.mediaType == "Vidéo" && !isStreamingFinished) {
+                        // Streaming progress ring overlay
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.7f)),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { downloadProgress / 100f },
+                                color = Color(0xFF10B981),
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Flux continu\n${downloadProgress}%",
+                                fontSize = 9.sp,
+                                color = Color.White,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                lineHeight = 10.sp
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(56.dp)
+                                .align(Alignment.Center)
+                        )
+                        
+                        if (reel.mediaType == "Vidéo") {
+                            // Blinking live streaming dot
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(6.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Red)
+                                )
+                                Text("STREAMING LIVE", fontSize = 7.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -637,19 +1081,47 @@ fun ReelPageItem(
             // Views tag indicator
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.RemoveRedEye,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.size(12.dp)
-                )
-                Text(
-                    text = "${reel.viewsCount} vues • Catégorie: ${reel.category}",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RemoveRedEye,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "${reel.viewsCount} vues",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp
+                    )
+                }
+
+                val coinGains = (reel.viewsCount / 1000 + 1).coerceIn(1, 10)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFFFD700).copy(alpha = 0.2f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MonetizationOn,
+                        contentDescription = "N Coins",
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "$coinGains N-Coins",
+                        color = Color(0xFFFFD700),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                    )
+                }
             }
         }
 

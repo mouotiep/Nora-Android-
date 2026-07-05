@@ -52,6 +52,10 @@ fun MarketplaceView(
     val activeRole by viewModel.activeRole.collectAsState()
     val conversionRate by viewModel.conversionRate.collectAsState()
     val walletNCoins by viewModel.walletNCoins.collectAsState()
+    val favoriteProductIds by viewModel.favoriteProductIds.collectAsState()
+    val adminAdTitle by viewModel.adminAdTitle.collectAsState()
+    val adminAdText by viewModel.adminAdText.collectAsState()
+    val adminAdImageUrl by viewModel.adminAdImageUrl.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Tous") }
@@ -64,9 +68,10 @@ fun MarketplaceView(
     var showKycDialog by remember { mutableStateOf(false) }
     var showAddProductDialog by remember { mutableStateOf(false) }
 
-    // Filter products: hide banned, filter by category/search, prioritize user interests
+    // Filter products: hide banned, filter out administrator products, filter by category/search, prioritize user interests
     val filteredProducts = remember(products, searchQuery, selectedCategory, userProfile.interests) {
         products.filter { !it.isBanned }
+            .filter { !it.shopId.lowercase().contains("admin") && !it.shopName.lowercase().contains("admin") }
             .filter { selectedCategory == "Tous" || it.category == selectedCategory }
             .filter { searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.shopName.contains(searchQuery, ignoreCase = true) }
             .sortedByDescending { userProfile.interests.contains(it.category) }
@@ -80,7 +85,7 @@ fun MarketplaceView(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Gorgeous Emerald-to-Teal Gradient Hero Banner Card with Cameroon theme
+        // Gorgeous Dynamic Custom Ad Banner Card with optional image and Cameroon theme
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -89,77 +94,106 @@ fun MarketplaceView(
             colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(Color(0xFF0F9F72), Color(0xFF007A5E))
-                        )
-                    )
-                    .padding(20.dp)
+            Box(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Marché Local Camerounais",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
+                if (adminAdImageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(adminAdImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Affiche Publicitaire",
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(20.dp)),
+                        contentScale = ContentScale.Crop
                     )
-                    Text(
-                        text = "🇨🇲",
-                        fontSize = 24.sp
+                    // Dark semi-transparent overlay to keep search text/labels highly visible
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.45f))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(Color(0xFF0F9F72), Color(0xFF007A5E))
+                                )
+                            )
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "Commandez directement auprès des meilleurs artisans de Yaoundé, Douala, Bafoussam et Garoua.",
-                    fontSize = 11.5.sp,
-                    color = Color.White.copy(alpha = 0.9f),
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.Normal
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Integrated Search Input Bar (White Pill Form)
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { 
-                        Text(
-                            text = "Rechercher vêtements, épices, kaba, co...", 
-                            fontSize = 13.sp, 
-                            color = Color.Gray.copy(alpha = 0.8f)
-                        ) 
-                    },
-                    leadingIcon = { 
-                        Icon(
-                            imageVector = Icons.Default.Search, 
-                            contentDescription = null, 
-                            tint = Color.Gray, 
-                            modifier = Modifier.size(20.dp)
-                        ) 
-                    },
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("marketplace_search"),
-                    shape = RoundedCornerShape(100.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color.White,
-                        cursorColor = Color(0xFF007A5E)
-                    ),
-                    singleLine = true
-                )
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = adminAdTitle,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "🇨🇲",
+                            fontSize = 22.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = adminAdText,
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.9f),
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Integrated Search Input Bar (White Pill Form)
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { 
+                            Text(
+                                text = "Rechercher vêtements, épices, kaba, co...", 
+                                fontSize = 13.sp, 
+                                color = Color.Gray.copy(alpha = 0.8f)
+                            ) 
+                        },
+                        leadingIcon = { 
+                            Icon(
+                                imageVector = Icons.Default.Search, 
+                                contentDescription = null, 
+                                tint = Color.Gray, 
+                                modifier = Modifier.size(20.dp)
+                            ) 
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("marketplace_search"),
+                        shape = RoundedCornerShape(100.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.White,
+                            unfocusedBorderColor = Color.White,
+                            cursorColor = Color(0xFF007A5E)
+                        ),
+                        singleLine = true
+                    )
+                }
             }
         }
 
@@ -329,6 +363,8 @@ fun MarketplaceView(
                     ProductCardItem(
                         product = item,
                         userProfile = userProfile,
+                        isFavorite = favoriteProductIds.contains(item.id),
+                        onFavoriteToggle = { viewModel.toggleFavoriteProduct(item.id) },
                         onClick = { selectedProductDetails = item }
                     )
                 }
@@ -490,6 +526,28 @@ fun MarketplaceView(
                             }
                             Text("Artisan Vérifié", fontSize = 10.sp, color = Color.Gray)
                         }
+
+                        // Follow Shop Button
+                        val followedShops by viewModel.followedShops.collectAsState()
+                        val isFollowed = followedShops.contains(prod.shopId)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isFollowed) Color(0xFFE2E8F0) else Color(0xFF10B981))
+                                .clickable {
+                                    viewModel.toggleFollowShop(prod.shopId)
+                                    val statusMsg = if (isFollowed) "Boutique retirée des favoris !" else "Boutique suivie !"
+                                    Toast.makeText(context, statusMsg, Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (isFollowed) "Suivi ✓" else "+ Suivre",
+                                color = if (isFollowed) Color.DarkGray else Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -500,6 +558,38 @@ fun MarketplaceView(
                         color = Color(0xFF4B5563),
                         lineHeight = 16.sp
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Delivery options info card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (prod.offersDelivery) Icons.Default.DirectionsCar else Icons.Default.Info,
+                                contentDescription = null,
+                                tint = if (prod.offersDelivery) Color(0xFF10B981) else Color.Gray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Column {
+                                if (prod.offersDelivery) {
+                                    Text("Livraison disponible", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                    Text("Tarif: ${prod.deliveryCost.toLocaleString()} FCFA", fontSize = 10.sp, color = Color(0xFF64748B))
+                                } else {
+                                    Text("Pas de livraison proposée", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                                    Text("À récupérer sur place chez le vendeur", fontSize = 10.sp, color = Color(0xFF64748B))
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -951,8 +1041,9 @@ fun MarketplaceView(
         }
     }
 
-    // KYC Form Dialog
+    // KYC Form Dialog (2 Steps Flow)
     if (showKycDialog) {
+        var currentKycStep by remember { mutableStateOf(1) }
         var shopNameInput by remember { mutableStateOf("") }
         var shopDescInput by remember { mutableStateOf("") }
         var shopLocInput by remember { mutableStateOf("") }
@@ -971,137 +1062,165 @@ fun MarketplaceView(
                     .verticalScroll(rememberScrollState())
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Ouvrir une Boutique (KYC)", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
-                    Text("Soumettez vos documents officiels pour obtenir la certification verte.", fontSize = 11.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    if (currentKycStep == 1) {
+                        Text("Ouvrir une Boutique", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
+                        Text("Saisissez les informations de votre boutique et importez vos documents d'identité.", fontSize = 11.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
-                        value = shopNameInput,
-                        onValueChange = { shopNameInput = it },
-                        label = { Text("Nom de la Boutique") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
+                        OutlinedTextField(
+                            value = shopNameInput,
+                            onValueChange = { shopNameInput = it },
+                            label = { Text("Nom de la Boutique") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    OutlinedTextField(
-                        value = shopDescInput,
-                        onValueChange = { shopDescInput = it },
-                        label = { Text("Description des produits vendus") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
+                        OutlinedTextField(
+                            value = shopDescInput,
+                            onValueChange = { shopDescInput = it },
+                            label = { Text("Description des produits vendus") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    OutlinedTextField(
-                        value = shopLocInput,
-                        onValueChange = { shopLocInput = it },
-                        label = { Text("Localisation / Ville au Cameroun") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
+                        OutlinedTextField(
+                            value = shopLocInput,
+                            onValueChange = { shopLocInput = it },
+                            label = { Text("Localisation / Ville au Cameroun") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    Text("Catégorie Principale", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Objets d'Art", "Mode & Vêtements", "Alimentation").forEach { cat ->
-                            val isSel = shopCategoryInput == cat
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
-                                    .clickable { shopCategoryInput = cat }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(cat, fontSize = 10.sp, color = if (isSel) Color.White else Color.Black)
+                        Text("Catégorie Principale", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Objets d'Art", "Mode & Vêtements", "Alimentation").forEach { cat ->
+                                val isSel = shopCategoryInput == cat
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                        .clickable { shopCategoryInput = cat }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(cat, fontSize = 10.sp, color = if (isSel) Color.White else Color.Black)
+                                }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    // Simulated Identity Upload
-                    Text("Téléchargement de Pièce d'Identité (Simulé)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    OutlinedTextField(
-                        value = idCardName,
-                        onValueChange = { idCardName = it },
-                        label = { Text("Fichier Photo CNI (Ex: cni_kole.jpg)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    OutlinedTextField(
-                        value = selfieName,
-                        onValueChange = { selfieName = it },
-                        label = { Text("Selfie avec CNI en main (Ex: selfie_kole.jpg)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Legal text checkbox agreement
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Checkbox(
-                            checked = agreedToFee,
-                            onCheckedChange = { agreedToFee = it }
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Je m'engage à verser 5% de ce que je gagne à l'administrateur de Nora Cameroun après avoir livré chaque colis sous peine de poursuites judiciaires, de bannissement ou d'affichage d'une bannière de fraudeur (Arnaqueur).",
-                            fontSize = 10.sp,
-                            color = Color(0xFFDC2626),
-                            lineHeight = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(onClick = { showKycDialog = false }) { Text("Annuler") }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (shopNameInput.isBlank() || shopDescInput.isBlank() || shopLocInput.isBlank()) {
-                                    Toast.makeText(context, "Saisissez toutes les informations de votre boutique", Toast.LENGTH_SHORT).show()
-                                    return@Button
+                        // Simulated Identity Upload
+                        Text("Téléchargement de Pièce d'Identité (CNI) 🪪", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val randomCni = listOf("cni_recto_verso_cam.jpg", "carte_identite_mouotie.png", "cni_officiel.jpg").random()
+                                    idCardName = randomCni
+                                    Toast.makeText(context, "CNI sélectionnée depuis la galerie : $randomCni", Toast.LENGTH_SHORT).show()
                                 }
-                                if (idCardName.isBlank() || selfieName.isBlank()) {
-                                    Toast.makeText(context, "Documents d'identité requis", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                if (!agreedToFee) {
-                                    Toast.makeText(context, "Vous devez accepter l'engagement légal de 5% de commission", Toast.LENGTH_LONG).show()
-                                    return@Button
-                                }
-                                viewModel.submitShopKyc(
-                                    shopName = shopNameInput,
-                                    shopDesc = shopDescInput,
-                                    shopCategory = shopCategoryInput,
-                                    location = shopLocInput,
-                                    idCardName = idCardName,
-                                    selfieName = selfieName,
-                                    agreed = true
-                                )
-                                Toast.makeText(context, "Votre dossier KYC a été soumis à l'administrateur avec succès !", Toast.LENGTH_LONG).show()
-                                showKycDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Soumettre KYC")
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = Color(0xFF10B981))
+                                Column {
+                                    Text(
+                                        text = if (idCardName.isBlank()) "Sélectionner la photo de la CNI" else "CNI Importée ✓",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (idCardName.isBlank()) Color.Black else Color(0xFF10B981)
+                                    )
+                                    Text(
+                                        text = if (idCardName.isBlank()) "Formats supportés: PNG, JPG" else idCardName,
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text("Selfie avec CNI en main 🤳", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val randomSelfie = listOf("selfie_detenu_cni.jpg", "selfie_validation_mouotie.jpg").random()
+                                    selfieName = randomSelfie
+                                    Toast.makeText(context, "Selfie enregistré : $randomSelfie", Toast.LENGTH_SHORT).show()
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color(0xFF10B981))
+                                Column {
+                                    Text(
+                                        text = if (selfieName.isBlank()) "Prendre ou sélectionner un Selfie" else "Selfie Importé ✓",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (selfieName.isBlank()) Color.Black else Color(0xFF10B981)
+                                    )
+                                    Text(
+                                        text = if (selfieName.isBlank()) "Tenez votre CNI à côté de votre visage" else selfieName,
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showKycDialog = false }) { Text("Annuler") }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    if (shopNameInput.isBlank() || shopDescInput.isBlank() || shopLocInput.isBlank()) {
+                                        Toast.makeText(context, "Saisissez toutes les informations de votre boutique", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+                                    if (idCardName.isBlank() || selfieName.isBlank()) {
+                                        Toast.makeText(context, "Documents d'identité requis", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+                                    viewModel.submitShopKyc(
+                                        shopName = shopNameInput,
+                                        shopDesc = shopDescInput,
+                                        shopCategory = shopCategoryInput,
+                                        location = shopLocInput,
+                                        idCardName = idCardName,
+                                        selfieName = selfieName,
+                                        agreed = true
+                                    )
+                                    Toast.makeText(context, "Votre dossier de création de boutique a été soumis avec succès !", Toast.LENGTH_LONG).show()
+                                    showKycDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Soumettre ma demande")
+                            }
                         }
                     }
                 }
@@ -1117,6 +1236,8 @@ fun MarketplaceView(
         var prodCategory by remember { mutableStateOf("Objets d'Art") }
         var prodDesc by remember { mutableStateOf("") }
         var prodImage by remember { mutableStateOf("") }
+        var offersDelivery by remember { mutableStateOf(false) }
+        var deliveryCostInput by remember { mutableStateOf("") }
 
         Dialog(onDismissRequest = { showAddProductDialog = false }) {
             Surface(
@@ -1140,6 +1261,32 @@ fun MarketplaceView(
                     OutlinedTextField(value = prodDesc, onValueChange = { prodDesc = it }, label = { Text("Description détaillée") }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = prodImage, onValueChange = { prodImage = it }, label = { Text("URL de la photo") }, placeholder = { Text("Ex: https://...") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Proposer la livraison", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Switch(
+                            checked = offersDelivery,
+                            onCheckedChange = { offersDelivery = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981))
+                        )
+                    }
+
+                    if (offersDelivery) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = deliveryCostInput,
+                            onValueChange = { deliveryCostInput = it },
+                            label = { Text("Frais de livraison (FCFA)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1176,7 +1323,9 @@ fun MarketplaceView(
                                     shopName = userProfile.shopName,
                                     location = userProfile.shopLocation,
                                     description = prodDesc,
-                                    imageUrl = prodImage
+                                    imageUrl = prodImage,
+                                    offersDelivery = offersDelivery,
+                                    deliveryCost = if (offersDelivery) (deliveryCostInput.toIntOrNull() ?: 0) else 0
                                 )
                                 Toast.makeText(context, "Produit mis en vente avec succès !", Toast.LENGTH_LONG).show()
                                 showAddProductDialog = false
@@ -1311,6 +1460,8 @@ fun MarketplaceView(
 fun ProductCardItem(
     product: ProductItem,
     userProfile: com.example.UserProfile,
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
     onClick: () -> Unit
 ) {
     val isUserPreferred = userProfile.interests.contains(product.category)
@@ -1341,21 +1492,22 @@ fun ProductCardItem(
                     contentScale = ContentScale.Crop
                 )
 
-                // White circular badge with red favorite heart icon (top-right)
+                // White circular badge with favorite heart icon (top-right)
                 Surface(
                     shape = CircleShape,
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .size(28.dp),
+                        .size(28.dp)
+                        .clickable { onFavoriteToggle() },
                     shadowElevation = 2.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Filled.Favorite,
-                            contentDescription = null,
-                            tint = Color.Red,
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favori",
+                            tint = if (isFavorite) Color.Red else Color.Gray,
                             modifier = Modifier.size(15.dp)
                         )
                     }

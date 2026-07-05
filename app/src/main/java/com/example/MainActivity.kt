@@ -28,7 +28,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.components.*
 import com.example.ui.theme.MyApplicationTheme
+import kotlinx.coroutines.delay
 import java.util.Locale
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +56,64 @@ fun Int.toLocaleString(): String {
     return String.format(Locale.FRANCE, "%,d", this)
 }
 
+@Composable
+fun NoraSplashScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Color(0xFF007A5E)),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = R.drawable.img_app_icon_1783163003118,
+                    contentDescription = "Logo Nora Cameroun",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    error = painterResource(id = android.R.drawable.ic_menu_gallery)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "NORA CAMEROUN",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF007A5E),
+                letterSpacing = 1.5.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Achetez. Vendez. Gagnez.",
+                fontSize = 14.sp,
+                color = Color(0xFF10B981),
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            CircularProgressIndicator(
+                color = Color(0xFF10B981),
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
@@ -57,8 +124,46 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
     val currentTabIndex by viewModel.currentTabIndex.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
 
-    // If user is not logged in / has not completed interest selection onboarding
-    if (!userProfile.isLoggedIn) {
+    var showSplash by remember { mutableStateOf(true) }
+    
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val postNotificationGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
+        val readStorageGranted = permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        val readImagesGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions[Manifest.permission.READ_MEDIA_IMAGES] ?: false
+        } else {
+            false
+        }
+        
+        if (postNotificationGranted) {
+            Toast.makeText(context, "Notifications Nora Cameroun activées !", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(3000) // 3 seconds splash screen
+        showSplash = false
+    }
+
+    LaunchedEffect(showSplash) {
+        if (!showSplash) {
+            val permissionsToRequest = mutableListOf<String>()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+            } else {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+    }
+
+    if (showSplash) {
+        NoraSplashScreen()
+    } else if (!userProfile.isLoggedIn) {
         OnboardingScreen(viewModel = viewModel)
     } else {
         // Main Application Shell
@@ -121,12 +226,11 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                             }
                         }
 
-                        // Right: Interactive Admin/Creator/Buyer status capsule pill & notification bell
+                        // Right: Admin/Buyer status capsule pill & notification bell
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            var showRoleDropdown by remember { mutableStateOf(false) }
                             Box {
                                 Row(
                                     modifier = Modifier
@@ -137,7 +241,6 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                             color = Color(0xFF34D399).copy(alpha = 0.5f),
                                             shape = RoundedCornerShape(100.dp)
                                         )
-                                        .clickable { showRoleDropdown = true }
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -153,7 +256,6 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                         Icon(
                                             imageVector = when (activeRole) {
                                                 "Admin" -> Icons.Default.SupportAgent
-                                                "Créateur" -> Icons.Default.Videocam
                                                 else -> Icons.Default.Person
                                             },
                                             contentDescription = null,
@@ -164,7 +266,6 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                     Text(
                                         text = when (activeRole) {
                                             "Admin" -> "ADMINISTRATEUR"
-                                            "Créateur" -> "CRÉATEUR"
                                             else -> "ACHETEUR"
                                         },
                                         color = Color.White,
@@ -172,29 +273,6 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                         fontWeight = FontWeight.ExtraBold,
                                         letterSpacing = 0.5.sp
                                     )
-                                }
-
-                                DropdownMenu(
-                                    expanded = showRoleDropdown,
-                                    onDismissRequest = { showRoleDropdown = false }
-                                ) {
-                                    listOf("Acheteur", "Créateur", "Admin").forEach { role ->
-                                        val isCurrent = activeRole == role
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = role,
-                                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (isCurrent) Color(0xFF007A5E) else Color(0xFF1F2937)
-                                                )
-                                            },
-                                            onClick = {
-                                                viewModel.setActiveRole(role)
-                                                showRoleDropdown = false
-                                                Toast.makeText(context, "Profil simulé : $role", Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    }
                                 }
                             }
 
@@ -286,18 +364,16 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                             Icon(
                                 imageVector = when (activeRole) {
                                     "Admin" -> if (currentTabIndex == 3) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
-                                    "Créateur" -> if (currentTabIndex == 3) Icons.Filled.BarChart else Icons.Outlined.BarChart
                                     else -> if (currentTabIndex == 3) Icons.Filled.AccountBox else Icons.Outlined.AccountBox
                                 },
-                                contentDescription = "Tableau de Bord"
+                                contentDescription = "Mon Profil"
                             )
                         },
                         label = {
                             Text(
                                 text = when (activeRole) {
                                     "Admin" -> "Tableau Admin"
-                                    "Créateur" -> "Tab. Créateur"
-                                    else -> "Mon Tableau"
+                                    else -> "Mon Profil"
                                 },
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
@@ -325,7 +401,6 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                     3 -> {
                         when (activeRole) {
                             "Admin" -> AdminDashboardView(viewModel = viewModel)
-                            "Créateur" -> CreatorDashboardView(viewModel = viewModel)
                             else -> ProfileView(viewModel = viewModel)
                         }
                     }

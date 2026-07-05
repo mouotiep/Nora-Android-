@@ -19,6 +19,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
 import com.example.NoraViewModel
 import com.example.toLocaleString
 
@@ -34,10 +39,20 @@ fun ProfileView(
     val transactions by viewModel.transactions.collectAsState()
     val orders by viewModel.orders.collectAsState()
 
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            viewModel.updateProfile(userProfile.name, userProfile.whatsappNumber, it.toString())
+            Toast.makeText(context, "📸 Photo de profil mise à jour avec succès !", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showEditShopDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf<String?>(null) }
     var showPublishReelDialog by remember { mutableStateOf(false) }
+    var showChangePhotoDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -55,20 +70,58 @@ fun ProfileView(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Profile Avatar with initials
+                // Profile Avatar with edit camera overlay (WhatsApp-style)
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981)),
-                    contentAlignment = Alignment.Center
+                        .size(88.dp)
+                        .clickable { showChangePhotoDialog = true }
+                        .testTag("profile_avatar_box"),
+                    contentAlignment = Alignment.BottomEnd
                 ) {
-                    Text(
-                        text = userProfile.name.take(2).uppercase(),
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                            .border(2.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (userProfile.profilePic.isNotBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(userProfile.profilePic)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Photo de profil",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = userProfile.name.take(2).uppercase(),
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    // WhatsApp-style green camera edit badge
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                            .border(1.5.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = "Changer la photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -237,6 +290,211 @@ fun ProfileView(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+            }
+        }
+
+        // --- Invitation & Parrainage (Referral Program) ---
+        val referralLink = "https://nora-cameroun.com/invite/${userProfile.name.lowercase().replace(" ", "_")}"
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)), // light WhatsApp-green background
+            border = BorderStroke(1.dp, Color(0xFFDCFCE7)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.GroupAdd,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Parrainage Nora Cameroun 👥",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF14532D)
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Gagnez +25 N Coins pour chaque nouvel utilisateur qui s'inscrit via votre lien unique de parrainage !",
+                    fontSize = 11.sp,
+                    color = Color(0xFF15803D)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Link display box
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                ) {
+                    Text(
+                        text = referralLink,
+                        fontSize = 10.sp,
+                        color = Color(0xFF166534),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Copy button
+                    OutlinedButton(
+                        onClick = {
+                            clipboardManager.setText(androidx.compose.ui.text.buildAnnotatedString { append(referralLink) })
+                            Toast.makeText(context, "Lien de parrainage copié !", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        border = BorderStroke(1.dp, Color(0xFF16A34A)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Copier", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    // Simulation button
+                    Button(
+                        onClick = {
+                            val cameroonNames = listOf(
+                                "Amadou", "Mireille", "Sali", "Ferdinand", "Sonia", 
+                                "Samuel", "Florence", "Merveille", "Aboubakar", "Evelyne", 
+                                "Emile", "Chantal", "Yannick", "Carine", "Marc"
+                            )
+                            val referee = cameroonNames.random()
+                            viewModel.simulateReferralSignUp(referee)
+                            Toast.makeText(context, "🎉 Félicitations ! $referee s'est inscrit via votre lien. +25 N Coins crédités !", Toast.LENGTH_LONG).show()
+                        },
+                        modifier = Modifier.weight(1.2f).testTag("simulate_referral_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Simuler", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+
+
+        // --- Followed Shops & Creators Section (WhatsApp-style tracking) ---
+        val followedShops by viewModel.followedShops.collectAsState()
+        val followedCreators by viewModel.followedCreators.collectAsState()
+        val products by viewModel.products.collectAsState()
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Vos Abonnements Nora 🌟", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111827))
+                
+                if (followedCreators.isEmpty() && followedShops.isEmpty()) {
+                    Text(
+                        text = "Vous ne suivez aucun créateur ni boutique pour le moment. Suivez-en dans les onglets Marché et Reels !",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                if (followedCreators.isNotEmpty()) {
+                    Column {
+                        Text("Créateurs de contenu", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            followedCreators.forEach { creator ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.clickable {
+                                        viewModel.toggleFollowCreator(creator)
+                                        Toast.makeText(context, "Vous ne suivez plus $creator", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE2E8F0)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(creator.take(2).uppercase(), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.DarkGray)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(creator, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                    Text("Se désabonner", fontSize = 8.sp, color = Color.Red.copy(alpha = 0.7f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (followedShops.isNotEmpty() && followedCreators.isNotEmpty()) {
+                    Divider(color = Color(0xFFF1F5F9))
+                }
+
+                if (followedShops.isNotEmpty()) {
+                    Column {
+                        Text("Boutiques favorites", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            followedShops.forEach { shopId ->
+                                val shopName = products.find { it.shopId == shopId }?.shopName ?: "Boutique Nora"
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                    modifier = Modifier
+                                        .width(130.dp)
+                                        .clickable {
+                                            viewModel.toggleFollowShop(shopId)
+                                            Toast.makeText(context, "Boutique retirée des favoris", Toast.LENGTH_SHORT).show()
+                                        }
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFD1FAE5)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Storefront, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(shopName, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("Retirer", fontSize = 8.sp, color = Color.Red, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -555,6 +813,164 @@ fun ProfileView(
                         ) {
                             Text("Publier", color = Color.White)
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Change Photo Dialog (WhatsApp-style) ---
+    if (showChangePhotoDialog) {
+        val avatarOptions = listOf(
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Leo" to "Dessin Homme 1",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Jack" to "Dessin Homme 2",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Felix" to "Dessin Homme 3",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Sam" to "Dessin Homme 4",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Max" to "Dessin Homme 5",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Alex" to "Dessin Homme 6",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Emma" to "Dessin Femme 1",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Sara" to "Dessin Femme 2",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Lily" to "Dessin Femme 3",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Maya" to "Dessin Femme 4",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Zoe" to "Dessin Femme 5",
+            "https://api.dicebear.com/7.x/avataaars/png?seed=Luna" to "Dessin Femme 6"
+        )
+
+        Dialog(onDismissRequest = { showChangePhotoDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Photo de profil 📸",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                    Text(
+                        text = "Importez une photo depuis votre téléphone ou choisissez un avatar dessiné.",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+
+                    // Real phone import button
+                    Button(
+                        onClick = {
+                            photoPickerLauncher.launch("image/*")
+                            showChangePhotoDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Importer depuis le téléphone 📱", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    Divider(color = Color(0xFFF1F5F9))
+
+                    Text(
+                        text = "Dessins d'avatars (Masculins & Féminins)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray
+                    )
+
+                    // Display avatar drawings in clean grid format
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        avatarOptions.chunked(3).forEach { chunk ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                chunk.forEach { (url, label) ->
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                viewModel.updateProfile(userProfile.name, userProfile.whatsappNumber, url)
+                                                Toast.makeText(context, "Photo de profil mise à jour !", Toast.LENGTH_SHORT).show()
+                                                showChangePhotoDialog = false
+                                            }
+                                            .padding(4.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data(url)
+                                                .crossfade(true)
+                                                .build(),
+                                            contentDescription = label,
+                                            modifier = Modifier
+                                                .size(54.dp)
+                                                .clip(CircleShape)
+                                                .border(1.dp, Color.LightGray, CircleShape),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(label, fontSize = 9.sp, color = Color.Gray, maxLines = 1)
+                                    }
+                                }
+                                // Fill empty spaces if chunk is not full
+                                if (chunk.size < 3) {
+                                    repeat(3 - chunk.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Divider(color = Color(0xFFF1F5F9))
+
+                    // Simulated Selfie option for immediate testing
+                    OutlinedButton(
+                        onClick = {
+                            val simulatedSelfie = "https://api.dicebear.com/7.x/avataaars/png?seed=simulatedSelfie_${(1..100).random()}"
+                            viewModel.updateProfile(userProfile.name, userProfile.whatsappNumber, simulatedSelfie)
+                            Toast.makeText(context, "📸 Selfie instantané capturé !", Toast.LENGTH_SHORT).show()
+                            showChangePhotoDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, Color(0xFF10B981)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color(0xFF10B981))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Prendre un selfie 📸", fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                    }
+
+                    if (userProfile.profilePic.isNotBlank()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.updateProfile(userProfile.name, userProfile.whatsappNumber, "clear")
+                                Toast.makeText(context, "Photo de profil supprimée", Toast.LENGTH_SHORT).show()
+                                showChangePhotoDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                        ) {
+                            Text("Supprimer la photo actuelle", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { showChangePhotoDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Fermer", color = Color.Gray)
                     }
                 }
             }

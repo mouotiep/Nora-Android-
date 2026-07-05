@@ -13,7 +13,9 @@ data class ProductItem(
     val shopId: String = "shop-default",
     val isCertified: Boolean = true,
     val isScammer: Boolean = false,
-    val isBanned: Boolean = false
+    val isBanned: Boolean = false,
+    val offersDelivery: Boolean = false,
+    val deliveryCost: Int = 0
 )
 
 data class ReelComment(
@@ -98,7 +100,9 @@ data class UserProfile(
     val agreedToFee: Boolean = false,
     val idCardPhoto: String = "",
     val selfiePhoto: String = "",
-    val hasShop: Boolean = false
+    val hasShop: Boolean = false,
+    val email: String = "",
+    val onboardingCompleted: Boolean = false
 )
 
 data class NoraOrder(
@@ -114,4 +118,10 @@ data class NoraOrder(
     val coinsCost: Int,
     val status: String, // "En attente de livraison", "Livré & Payé"
     val date: String
+)
+
+data class Account(
+    val email: String,
+    val password: String,
+    val profile: UserProfile
 )

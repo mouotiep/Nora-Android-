@@ -44,12 +44,32 @@ fun AdminDashboardView(
     val isBackingUp by viewModel.isBackingUp.collectAsState()
     val orders by viewModel.orders.collectAsState()
 
+    val adminAdTitle by viewModel.adminAdTitle.collectAsState()
+    val adminAdText by viewModel.adminAdText.collectAsState()
+    val adminAdImageUrl by viewModel.adminAdImageUrl.collectAsState()
+
     val currentSubAdmin by viewModel.currentSubAdmin.collectAsState()
     val isAdmin1Assigned by viewModel.isAdmin1Assigned.collectAsState()
     val isAdmin2Assigned by viewModel.isAdmin2Assigned.collectAsState()
 
     var showScanSimDialog by remember { mutableStateOf(false) }
     var scanOrderIdInput by remember { mutableStateOf("") }
+
+    var viewsRatioDraft by remember { mutableStateOf(viewsRatio) }
+    var conversionRateDraft by remember { mutableStateOf(conversionRate) }
+
+    var adTitleInput by remember { mutableStateOf(adminAdTitle) }
+    var adTextInput by remember { mutableStateOf(adminAdText) }
+    var adImageUrlInput by remember { mutableStateOf(adminAdImageUrl) }
+
+    // Synchronize inputs with actual values when admin flows load
+    LaunchedEffect(adminAdTitle, adminAdText, adminAdImageUrl, viewsRatio, conversionRate) {
+        adTitleInput = adminAdTitle
+        adTextInput = adminAdText
+        adImageUrlInput = adminAdImageUrl
+        viewsRatioDraft = viewsRatio
+        conversionRateDraft = conversionRate
+    }
 
     val pendingOrders = remember(orders) { orders.filter { it.status == "En attente de livraison" } }
     val currentRoleOrders = remember(pendingOrders, currentSubAdmin) {
@@ -581,11 +601,11 @@ fun AdminDashboardView(
                     Column {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("RATIO D'ÉMISSION", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Text("${viewsRatio.toInt()} Vues = 1 N Coin", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Text("${viewsRatioDraft.toInt()} Vues = 1 N Coin", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                         }
                         Slider(
-                            value = viewsRatio,
-                            onValueChange = { viewModel.setViewsRatio(it) },
+                            value = viewsRatioDraft,
+                            onValueChange = { viewsRatioDraft = it },
                             valueRange = 5f..50f,
                             colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
                         )
@@ -595,15 +615,130 @@ fun AdminDashboardView(
                     Column {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("VALEUR DE CONVERSION", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Text("1 N Coin = ${conversionRate.toInt()} FCFA (Modulable)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Text("1 N Coin = ${conversionRateDraft.toInt()} FCFA (Modulable)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                         }
                         Slider(
-                            value = conversionRate,
-                            onValueChange = { viewModel.setConversionRate(it) },
+                            value = conversionRateDraft,
+                            onValueChange = { conversionRateDraft = it },
                             valueRange = 1f..10f,
                             colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
                         )
                         Text("Ajustez le taux d'échange légal de 1 F CFA à 10 F CFA par N Coin selon la liquidité du marché.", fontSize = 10.sp, color = Color.Gray)
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Validation Button
+                    val ratesModified = viewsRatioDraft != viewsRatio || conversionRateDraft != conversionRate
+                    Button(
+                        onClick = {
+                            viewModel.setViewsRatio(viewsRatioDraft)
+                            viewModel.setConversionRate(conversionRateDraft)
+                            Toast.makeText(
+                                context,
+                                "⚖️ Tarifs monétaires validés avec succès !\nNouveau taux : 1 N-Coin = ${conversionRateDraft.toInt()} FCFA\nRatio d'émission : ${viewsRatioDraft.toInt()} vues = 1 N-Coin",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag("validate_rates_button"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (ratesModified) Color(0xFF10B981) else Color(0xFF10B981).copy(alpha = 0.8f)
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("VALIDER LES NOUVEAUX TARIFS ⚖️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+
+            // --- Admin Custom Advertisement Banner Settings ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Campaign,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Affiche Publicitaire (Bannière de Recherche)", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = "Modifiez l'arrière-plan, le titre et le texte de l'affiche publicitaire verte située derrière la barre de recherche du marché.",
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = adTitleInput,
+                        onValueChange = { adTitleInput = it },
+                        label = { Text("Titre de l'affiche publicitaire", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = adTextInput,
+                        onValueChange = { adTextInput = it },
+                        label = { Text("Description de la publicité", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = adImageUrlInput,
+                        onValueChange = { adImageUrlInput = it },
+                        label = { Text("Lien de l'image de fond (Optionnel)", fontSize = 11.sp) },
+                        placeholder = { Text("Laisser vide pour conserver le vert d'origine") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.updateAdminAd(
+                                title = adTitleInput,
+                                text = adTextInput,
+                                imageUrl = adImageUrlInput
+                            )
+                            Toast.makeText(context, "Affiche publicitaire mise à jour avec succès !", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Publier l'Affiche", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

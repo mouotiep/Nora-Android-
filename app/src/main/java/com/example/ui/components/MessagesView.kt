@@ -87,36 +87,34 @@ fun MessagesView(
                 )
 
                 // Warning Banner (Adaptive for Admin or regular user)
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (activeRole == "Admin") Color(0xFFEFF6FF) else Color(0xFFFEF3C7)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                if (activeRole == "Admin") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFEFF6FF)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            imageVector = if (activeRole == "Admin") Icons.Default.SupportAgent else Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = if (activeRole == "Admin") Color(0xFF1D4ED8) else Color(0xFFD97706),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = if (activeRole == "Admin") {
-                                "Interface Administrateur : Vous communiquez directement avec les utilisateurs sous l'identité de 'NorA' pour préserver l'anonymat et garantir la sécurité des échanges."
-                            } else {
-                                "Messagerie Sécurisée : Pour éviter les fraudes et garantir la commission de 5%, tous vos échanges transitent de manière sécurisée via l'assistance NorA."
-                            },
-                            fontSize = 10.sp,
-                            color = if (activeRole == "Admin") Color(0xFF1E40AF) else Color(0xFF92400E),
-                            lineHeight = 14.sp
-                        )
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SupportAgent,
+                                contentDescription = null,
+                                tint = Color(0xFF1D4ED8),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Interface Administrateur : Vous communiquez directement avec les utilisateurs sous l'identité de 'NorA' pour préserver l'anonymat et garantir la sécurité des échanges.",
+                                fontSize = 10.sp,
+                                color = Color(0xFF1E40AF),
+                                lineHeight = 14.sp
+                            )
+                        }
                     }
                 }
 

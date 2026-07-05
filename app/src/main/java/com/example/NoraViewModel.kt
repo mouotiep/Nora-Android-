@@ -17,6 +17,13 @@ class NoraViewModel : ViewModel() {
     private val _currentTabIndex = MutableStateFlow(0)
     val currentTabIndex: StateFlow<Int> = _currentTabIndex.asStateFlow()
 
+    // Followed shops and content creators global state
+    private val _followedShops = MutableStateFlow<Set<String>>(emptySet())
+    val followedShops: StateFlow<Set<String>> = _followedShops.asStateFlow()
+
+    private val _followedCreators = MutableStateFlow<Set<String>>(emptySet())
+    val followedCreators: StateFlow<Set<String>> = _followedCreators.asStateFlow()
+
     // Search and category filters
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -43,7 +50,7 @@ class NoraViewModel : ViewModel() {
     val categories: StateFlow<List<String>> = _categories.asStateFlow()
 
     // Portefeuille (Wallet) states
-    private val _walletNCoins = MutableStateFlow(850)
+    private val _walletNCoins = MutableStateFlow(100)
     val walletNCoins: StateFlow<Int> = _walletNCoins.asStateFlow()
 
     // Monetary configurations
@@ -64,6 +71,20 @@ class NoraViewModel : ViewModel() {
     // User Profile
     private val _userProfile = MutableStateFlow(UserProfile())
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
+
+    // Favorite Product IDs
+    private val _favoriteProductIds = MutableStateFlow<Set<String>>(emptySet())
+    val favoriteProductIds: StateFlow<Set<String>> = _favoriteProductIds.asStateFlow()
+
+    fun toggleFavoriteProduct(productId: String) {
+        _favoriteProductIds.update { current ->
+            if (current.contains(productId)) {
+                current - productId
+            } else {
+                current + productId
+            }
+        }
+    }
 
     // Orders lists
     private val _orders = MutableStateFlow<List<NoraOrder>>(
@@ -154,6 +175,22 @@ class NoraViewModel : ViewModel() {
         )
     )
     val kycApplications: StateFlow<List<UserProfile>> = _kycApplications.asStateFlow()
+
+    // Admin Custom Advertisement banner poster (Marketplace Header Background)
+    private val _adminAdTitle = MutableStateFlow("Marché Local Camerounais")
+    val adminAdTitle: StateFlow<String> = _adminAdTitle.asStateFlow()
+
+    private val _adminAdText = MutableStateFlow("Commandez directement auprès des meilleurs artisans de Yaoundé, Douala, Bafoussam et Garoua.")
+    val adminAdText: StateFlow<String> = _adminAdText.asStateFlow()
+
+    private val _adminAdImageUrl = MutableStateFlow("")
+    val adminAdImageUrl: StateFlow<String> = _adminAdImageUrl.asStateFlow()
+
+    fun updateAdminAd(title: String, text: String, imageUrl: String) {
+        _adminAdTitle.value = title
+        _adminAdText.value = text
+        _adminAdImageUrl.value = imageUrl
+    }
 
     // Products catalog
     private val _products = MutableStateFlow<List<ProductItem>>(
@@ -368,8 +405,7 @@ class NoraViewModel : ViewModel() {
     // Transactions ledger
     private val _transactions = MutableStateFlow<List<Transaction>>(
         listOf(
-            Transaction("Création du compte", "Crédit de bienvenue", 50, "01 Juil 2026", true),
-            Transaction("Bonus Création de Vidéo", "Généré par 780 vues sur vid-2", 78, "03 Juil 2026", true)
+            Transaction("Création du compte", "Crédit de bienvenue", 100, "01 Juil 2026", true)
         )
     )
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
@@ -383,6 +419,89 @@ class NoraViewModel : ViewModel() {
     )
     val reportedItems: StateFlow<List<ReportedItem>> = _reportedItems.asStateFlow()
 
+    // Simulated registered accounts database
+    private val _registeredAccounts = MutableStateFlow<Map<String, Account>>(
+        mapOf(
+            "mouotiep@gmail.com" to Account(
+                "mouotiep@gmail.com",
+                "Mouotie1@,*",
+                UserProfile(
+                    id = "admin-mouotiep",
+                    name = "Admin Mouotie",
+                    whatsappNumber = "+237 675 001 001",
+                    isLoggedIn = false,
+                    onboardingCompleted = true,
+                    email = "mouotiep@gmail.com",
+                    kycStatus = "Certifié"
+                )
+            )
+        )
+    )
+    val registeredAccounts: StateFlow<Map<String, Account>> = _registeredAccounts.asStateFlow()
+
+    fun loginUser(email: String, password: String): Boolean {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail == "mouotiep@gmail.com" && password == "Mouotie1@,*") {
+            _userProfile.update {
+                it.copy(
+                    id = "admin-mouotiep",
+                    name = "Admin Mouotie",
+                    whatsappNumber = "+237 675 001 001",
+                    isLoggedIn = true,
+                    onboardingCompleted = true,
+                    email = "mouotiep@gmail.com",
+                    kycStatus = "Certifié"
+                )
+            }
+            _activeRole.value = "Admin"
+            return true
+        }
+
+        val storedAccount = _registeredAccounts.value[trimmedEmail]
+        if (storedAccount != null && storedAccount.password == password) {
+            _userProfile.value = storedAccount.profile.copy(isLoggedIn = true)
+            _activeRole.value = if (storedAccount.profile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
+            return true
+        }
+        return false
+    }
+
+    fun registerUser(email: String, password: String, whatsappNumber: String): Boolean {
+        val trimmedEmail = email.trim()
+        val trimmedWhatsapp = whatsappNumber.trim()
+        if (trimmedEmail.isBlank() || password.isBlank() || trimmedWhatsapp.isBlank()) return false
+        if (_registeredAccounts.value.containsKey(trimmedEmail)) return false
+        
+        val newProfile = UserProfile(
+            id = "user-${UUID.randomUUID()}",
+            name = "Nouveau Membre",
+            whatsappNumber = trimmedWhatsapp,
+            email = trimmedEmail,
+            isLoggedIn = true,
+            onboardingCompleted = false
+        )
+        val newAccount = Account(trimmedEmail, password, newProfile)
+        _registeredAccounts.update { it + (trimmedEmail to newAccount) }
+        _userProfile.value = newProfile
+        _activeRole.value = "Acheteur"
+        return true
+    }
+
+    fun logoutUser() {
+        val current = _userProfile.value
+        if (current.email.isNotEmpty() && current.email != "mouotiep@gmail.com") {
+            val currentAccount = _registeredAccounts.value[current.email]
+            if (currentAccount != null) {
+                _registeredAccounts.update {
+                    it + (current.email to currentAccount.copy(profile = current.copy(isLoggedIn = false)))
+                }
+            }
+        }
+        _userProfile.value = UserProfile()
+        _activeRole.value = "Acheteur"
+        _currentTabIndex.value = 0
+    }
+
     // Onboarding interest selection
     fun selectInterestsAndLogin(name: String, whatsapp: String, selectedInterests: List<String>) {
         _userProfile.update {
@@ -391,8 +510,18 @@ class NoraViewModel : ViewModel() {
                 whatsappNumber = whatsapp.ifBlank { "+237 600 000 000" },
                 interests = selectedInterests,
                 isLoggedIn = true,
+                onboardingCompleted = true,
                 kycStatus = "Aucun"
             )
+        }
+        val current = _userProfile.value
+        if (current.email.isNotEmpty() && current.email != "mouotiep@gmail.com") {
+            val currentAccount = _registeredAccounts.value[current.email]
+            if (currentAccount != null) {
+                _registeredAccounts.update {
+                    it + (current.email to currentAccount.copy(profile = current))
+                }
+            }
         }
     }
 
@@ -550,17 +679,33 @@ class NoraViewModel : ViewModel() {
         }
     }
 
-    // Video Follows
-    fun toggleFollow(reelId: String) {
+    // Follow and unfollow methods for shops and creators
+    fun toggleFollowShop(shopId: String) {
+        _followedShops.update { set ->
+            if (set.contains(shopId)) set - shopId else set + shopId
+        }
+    }
+
+    fun toggleFollowCreator(creatorName: String) {
+        _followedCreators.update { set ->
+            if (set.contains(creatorName)) set - creatorName else set + creatorName
+        }
+        // Sync isFollowing across all reels for this creator
         _reels.update { list ->
             list.map { reel ->
-                if (reel.id == reelId) {
-                    reel.copy(isFollowing = !reel.isFollowing)
+                if (reel.creatorName == creatorName) {
+                    reel.copy(isFollowing = _followedCreators.value.contains(creatorName))
                 } else {
                     reel
                 }
             }
         }
+    }
+
+    // Video Follows
+    fun toggleFollow(reelId: String) {
+        val creatorName = _reels.value.find { it.id == reelId }?.creatorName ?: return
+        toggleFollowCreator(creatorName)
     }
 
     fun addComment(reelId: String, text: String) {
@@ -595,7 +740,17 @@ class NoraViewModel : ViewModel() {
         _reportedItems.update { it + newReport }
     }
 
+    private val _userLikedComments = MutableStateFlow<Set<String>>(emptySet())
+    val userLikedComments: StateFlow<Set<String>> = _userLikedComments.asStateFlow()
+
     fun addReactionToComment(reelId: String, commentId: String, emoji: String) {
+        val commentKey = "$reelId-$commentId"
+        val alreadyLiked = _userLikedComments.value.contains(commentKey)
+        
+        _userLikedComments.update { current ->
+            if (alreadyLiked) current - commentKey else current + commentKey
+        }
+
         _reels.update { list ->
             list.map { reel ->
                 if (reel.id == reelId) {
@@ -603,7 +758,11 @@ class NoraViewModel : ViewModel() {
                         if (comment.id == commentId) {
                             val currentCount = comment.reactions[emoji] ?: 0
                             val updatedReactions = comment.reactions.toMutableMap()
-                            updatedReactions[emoji] = currentCount + 1
+                            if (alreadyLiked) {
+                                updatedReactions[emoji] = (currentCount - 1).coerceAtLeast(0)
+                            } else {
+                                updatedReactions[emoji] = currentCount + 1
+                            }
                             comment.copy(reactions = updatedReactions)
                         } else {
                             comment
@@ -657,6 +816,61 @@ class NoraViewModel : ViewModel() {
         _reels.update { listOf(newReel) + it }
     }
 
+    // Tracks viewed reel IDs per user to ensure unique view counting
+    private val _viewedReelIdsByCurrentUser = MutableStateFlow<Set<String>>(emptySet())
+    val viewedReelIdsByCurrentUser: StateFlow<Set<String>> = _viewedReelIdsByCurrentUser.asStateFlow()
+
+    fun calculateCoinsForViews(views: Int): Int {
+        if (views <= 0) return 0
+        // Scaled mapping: 1 to 10 N-Coins based on views up to 10,000 views.
+        // Specifically, views <= 1000 is 1 coin, <= 2000 is 2 coins... up to 10 coins for 10,000 views and beyond.
+        val coins = (views / 1000) + 1
+        return coins.coerceIn(1, 10)
+    }
+
+    fun recordUniqueView(reelId: String): Boolean {
+        if (_viewedReelIdsByCurrentUser.value.contains(reelId)) {
+            return false // Already counted as a view for this user
+        }
+        _viewedReelIdsByCurrentUser.update { it + reelId }
+        
+        // Increment the view count by 1 in the reels list
+        _reels.update { list ->
+            list.map { reel ->
+                if (reel.id == reelId) {
+                    val oldViews = reel.viewsCount
+                    val nextViews = oldViews + 1
+                    
+                    val oldCoins = calculateCoinsForViews(oldViews)
+                    val nextCoins = calculateCoinsForViews(nextViews)
+                    val bonusGained = nextCoins - oldCoins
+                    
+                    if (bonusGained > 0) {
+                        _walletNCoins.update { it + bonusGained }
+                        _transactions.update { tList ->
+                            val nList = ArrayList(tList)
+                            nList.add(
+                                0,
+                                Transaction(
+                                    title = "Bonus Créateur \"${reel.creatorName}\"",
+                                    description = "Gains d'audience unique (${nextViews} vues totalisées)",
+                                    amount = bonusGained,
+                                    date = "Aujourd'hui",
+                                    isPositive = true
+                                )
+                            )
+                            nList
+                        }
+                    }
+                    reel.copy(viewsCount = nextViews)
+                } else {
+                    reel
+                }
+            }
+        }
+        return true
+    }
+
     // Simulate views increments on Reels to reward Creators
     fun simulateViews(reelId: String, amount: Int) {
         _reels.update { list ->
@@ -665,9 +879,8 @@ class NoraViewModel : ViewModel() {
                     val oldViews = reel.viewsCount
                     val nextViews = oldViews + amount
                     
-                    // Calculate how many new N Coins this rewards.
-                    val oldCoins = (oldViews / _viewsRatio.value).toInt()
-                    val nextCoins = (nextViews / _viewsRatio.value).toInt()
+                    val oldCoins = calculateCoinsForViews(oldViews)
+                    val nextCoins = calculateCoinsForViews(nextViews)
                     val bonusGained = nextCoins - oldCoins
 
                     if (bonusGained > 0) {
@@ -696,6 +909,26 @@ class NoraViewModel : ViewModel() {
         }
     }
 
+    // Simulate referral/invitation signup (Earn 25 N-Coins per registration)
+    fun simulateReferralSignUp(refereeName: String) {
+        val reward = 25
+        _walletNCoins.update { it + reward }
+        _transactions.update { tList ->
+            val nList = ArrayList(tList)
+            nList.add(
+                0,
+                Transaction(
+                    title = "Parrainage d'un ami 👥",
+                    description = "Inscription de $refereeName via votre lien",
+                    amount = reward,
+                    date = "Aujourd'hui",
+                    isPositive = true
+                )
+            )
+            nList
+        }
+    }
+
     // Add dynamic Product to Marketplace Catalog
     fun addProduct(
         title: String,
@@ -705,7 +938,9 @@ class NoraViewModel : ViewModel() {
         shopName: String,
         location: String,
         description: String,
-        imageUrl: String
+        imageUrl: String,
+        offersDelivery: Boolean = false,
+        deliveryCost: Int = 0
     ) {
         val activeUser = _userProfile.value
         val newProduct = ProductItem(
@@ -721,7 +956,9 @@ class NoraViewModel : ViewModel() {
             shopId = activeUser.id,
             isCertified = activeUser.kycStatus == "Certifié",
             isScammer = activeUser.kycStatus == "Arnaqueur",
-            isBanned = activeUser.kycStatus == "Banni"
+            isBanned = activeUser.kycStatus == "Banni",
+            offersDelivery = offersDelivery,
+            deliveryCost = deliveryCost
         )
         _products.update { it + newProduct }
     }
@@ -958,7 +1195,10 @@ class NoraViewModel : ViewModel() {
             it.copy(
                 name = name.ifBlank { it.name },
                 whatsappNumber = whatsapp.ifBlank { it.whatsappNumber },
-                profilePic = profilePic.ifBlank { it.profilePic }
+                profilePic = when (profilePic) {
+                    "clear" -> ""
+                    else -> profilePic.ifBlank { it.profilePic }
+                }
             )
         }
     }
