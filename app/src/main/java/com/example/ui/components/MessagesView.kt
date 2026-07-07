@@ -14,6 +14,13 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import kotlinx.coroutines.delay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,9 +45,21 @@ fun MessagesView(
     val rawConversations by viewModel.conversations.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val activeChatId by viewModel.activeChatId.collectAsState()
 
-    var activeChatSession by remember { mutableStateOf<Conversation?>(null) }
     var chatTextInput by remember { mutableStateOf("") }
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var recordingDurationSec by remember { mutableStateOf(0) }
+
+    LaunchedEffect(isRecordingVoice) {
+        if (isRecordingVoice) {
+            recordingDurationSec = 0
+            while (isRecordingVoice) {
+                delay(1000)
+                recordingDurationSec++
+            }
+        }
+    }
 
     // Dynamically filter and rename conversations depending on user role
     val displayConversations = remember(rawConversations, activeRole, userProfile) {
@@ -60,14 +79,8 @@ fun MessagesView(
         }
     }
 
-    // Synchronize details in real-time
-    LaunchedEffect(displayConversations, activeChatSession) {
-        if (activeChatSession != null) {
-            val updated = displayConversations.find { it.id == activeChatSession!!.id }
-            if (updated != null) {
-                activeChatSession = updated
-            }
-        }
+    val activeChatSession = remember(displayConversations, activeChatId) {
+        displayConversations.find { it.id == activeChatId }
     }
 
     Box(
@@ -139,7 +152,7 @@ fun MessagesView(
                             ConversationRowItem(
                                 conversation = conv,
                                 isAdmin = isSupportChannel,
-                                onClick = { activeChatSession = conv }
+                                onClick = { viewModel.setActiveChatId(conv.id) }
                             )
                         }
                     }
@@ -159,7 +172,7 @@ fun MessagesView(
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { activeChatSession = null }) {
+                    IconButton(onClick = { viewModel.setActiveChatId(null) }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
                     }
 
@@ -252,25 +265,31 @@ fun MessagesView(
                                             )
                                         )
                                         .background(
-                                            when {
-                                                isMe -> Color(0xFF10B981)
-                                                isOtherAdminReply -> Color(0xFFEFF6FF)
-                                                else -> Color.White
+                                            if (message.sender == "admin") {
+                                                Color(0xFF2563EB) // Blue for admin
+                                            } else {
+                                                Color.White // White for client/vendeur
                                             }
                                         )
                                         .border(
                                             width = 1.dp,
-                                            color = if (isOtherAdminReply) Color(0xFFBFDBFE) else Color.Transparent,
+                                            color = if (message.sender != "admin") Color(0xFFE2E8F0) else Color.Transparent,
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
                                 ) {
-                                    Text(
-                                        text = message.text,
-                                        fontSize = 13.sp,
-                                        color = if (isMe) Color.White else Color(0xFF1F2937),
-                                        lineHeight = 17.sp
-                                    )
+                                    val isVoiceNote = message.text.startsWith("[VoiceNote:")
+                                    if (isVoiceNote) {
+                                        val durationSec = message.text.substringAfter("[VoiceNote:").substringBefore("]")
+                                        VoiceNotePlayer(durationStr = durationSec, isMe = isMe)
+                                    } else {
+                                        Text(
+                                            text = message.text,
+                                            fontSize = 13.sp,
+                                            color = if (message.sender == "admin") Color.White else Color(0xFF1F2937),
+                                            lineHeight = 17.sp
+                                        )
+                                    }
                                 }
 
                                 Row(
@@ -297,44 +316,140 @@ fun MessagesView(
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
-                            value = chatTextInput,
-                            onValueChange = { chatTextInput = it },
-                            placeholder = {
-                                Text(
-                                    text = if (activeRole == "Admin") "Répondre en tant que NorA..." else "Écrire à l'assistance NorA...",
-                                    fontSize = 13.sp
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("chat_input_text"),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFFF8FAFC),
-                                unfocusedContainerColor = Color(0xFFF8FAFC),
-                                focusedBorderColor = Color(0xFF10B981),
-                                unfocusedBorderColor = Color.Transparent
-                            ),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        IconButton(
-                            onClick = {
-                                if (chatTextInput.trim().isNotEmpty()) {
-                                    viewModel.sendMessage(currentChat.id, chatTextInput)
-                                    chatTextInput = ""
+                        if (isRecordingVoice) {
+                            // Recording UI
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFFFEF2F2))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Flashing Red Dot simulation
+                                var flashState by remember { mutableStateOf(true) }
+                                LaunchedEffect(Unit) {
+                                    while (true) {
+                                        delay(500)
+                                        flashState = !flashState
+                                    }
                                 }
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF10B981))
-                                .testTag("chat_send_button")
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(18.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (flashState) Color.Red else Color.Transparent)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Enregistrement... 0:${recordingDurationSec.toString().padStart(2, '0')}",
+                                    color = Color(0xFF991B1B),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                // Cancel Button
+                                IconButton(
+                                    onClick = { isRecordingVoice = false },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Annuler",
+                                        tint = Color(0xFF991B1B)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(6.dp))
+                            
+                            // Send Voice Note Button
+                            IconButton(
+                                onClick = {
+                                    viewModel.sendMessage(
+                                        currentChat.id,
+                                        "[VoiceNote:${recordingDurationSec.coerceAtLeast(1)}]"
+                                    )
+                                    isRecordingVoice = false
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Envoyer la note vocale",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else {
+                            // Standard text field UI
+                            OutlinedTextField(
+                                value = chatTextInput,
+                                onValueChange = { chatTextInput = it },
+                                placeholder = {
+                                    Text(
+                                        text = if (activeRole == "Admin") "Répondre en tant que NorA..." else "Écrire à l'assistance NorA...",
+                                        fontSize = 13.sp
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("chat_input_text"),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFFF8FAFC),
+                                    unfocusedContainerColor = Color(0xFFF8FAFC),
+                                    focusedBorderColor = Color(0xFF10B981),
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            if (chatTextInput.trim().isEmpty()) {
+                                // Microphone icon to start recording
+                                IconButton(
+                                    onClick = { isRecordingVoice = true },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF64748B))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Voice Note",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            } else {
+                                // Send text button
+                                IconButton(
+                                    onClick = {
+                                        if (chatTextInput.trim().isNotEmpty()) {
+                                            viewModel.sendMessage(currentChat.id, chatTextInput)
+                                            chatTextInput = ""
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                        .testTag("chat_send_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Send,
+                                        contentDescription = "Send",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -418,8 +533,14 @@ fun ConversationRowItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val displayLastMessage = if (conversation.lastMessage.startsWith("[VoiceNote:")) {
+                        val duration = conversation.lastMessage.substringAfter("[VoiceNote:").substringBefore("]")
+                        "🎵 Note vocale (${duration}s)"
+                    } else {
+                        conversation.lastMessage
+                    }
                     Text(
-                        text = conversation.lastMessage,
+                        text = displayLastMessage,
                         fontSize = 11.sp,
                         color = Color.Gray,
                         maxLines = 1,
@@ -439,6 +560,89 @@ fun ConversationRowItem(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun VoiceNotePlayer(
+    durationStr: String,
+    isMe: Boolean
+) {
+    var isPlaying by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            val durationSec = durationStr.toIntOrNull() ?: 5
+            val steps = durationSec * 10
+            for (i in 1..steps) {
+                if (!isPlaying) break
+                delay(100)
+                progress = i.toFloat() / steps
+            }
+            isPlaying = false
+            progress = 0f
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 2.dp)
+    ) {
+        IconButton(
+            onClick = { isPlaying = !isPlaying },
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(if (isMe) Color.White.copy(alpha = 0.2f) else Color(0xFF10B981).copy(alpha = 0.1f))
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Lire",
+                tint = if (isMe) Color.White else Color(0xFF10B981),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Column(modifier = Modifier.width(150.dp)) {
+            // Audio wave simulation
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.fillMaxWidth().height(24.dp)
+            ) {
+                val waveHeights = listOf(8, 12, 16, 10, 14, 18, 12, 8, 14, 10, 16, 12, 18, 10, 14, 8)
+                waveHeights.forEachIndexed { index, height ->
+                    val isPast = (index.toFloat() / waveHeights.size) < progress
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(height.dp)
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(
+                                if (isPast) {
+                                    if (isMe) Color.White else Color(0xFF10B981)
+                                } else {
+                                    if (isMe) Color.White.copy(alpha = 0.4f) else Color.LightGray
+                                }
+                            )
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (isPlaying) {
+                    val durationSec = durationStr.toIntOrNull() ?: 5
+                    val currentSec = (progress * durationSec).toInt()
+                    "0:${currentSec.toString().padStart(2, '0')} / 0:${durationStr.padStart(2, '0')}"
+                } else {
+                    "0:${durationStr.padStart(2, '0')}"
+                },
+                fontSize = 10.sp,
+                color = if (isMe) Color.White.copy(alpha = 0.8f) else Color.Gray
+            )
         }
     }
 }

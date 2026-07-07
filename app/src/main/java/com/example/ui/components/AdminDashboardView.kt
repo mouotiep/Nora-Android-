@@ -1,6 +1,8 @@
 package com.example.ui.components
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +25,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.NoraViewModel
 import com.example.ReportedItem
 import com.example.UserProfile
@@ -37,12 +42,27 @@ fun AdminDashboardView(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.updateAdminAd(
+                title = viewModel.adminAdTitle.value,
+                text = viewModel.adminAdText.value,
+                imageUrl = uri.toString()
+            )
+        }
+    }
     val kycApps by viewModel.kycApplications.collectAsState()
     val reportedItems by viewModel.reportedItems.collectAsState()
     val viewsRatio by viewModel.viewsRatio.collectAsState()
     val conversionRate by viewModel.conversionRate.collectAsState()
     val isBackingUp by viewModel.isBackingUp.collectAsState()
     val orders by viewModel.orders.collectAsState()
+    val totalUsersCount by viewModel.totalUsersCount.collectAsState()
+    val activeUsersCount by viewModel.activeUsersCount.collectAsState()
+    val totalDistributedNCoins by viewModel.totalDistributedNCoins.collectAsState()
 
     val adminAdTitle by viewModel.adminAdTitle.collectAsState()
     val adminAdText by viewModel.adminAdText.collectAsState()
@@ -278,6 +298,26 @@ fun AdminDashboardView(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("REINITIALISER TOUTES LES SESSIONS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Admin Logout Button
+            Button(
+                onClick = {
+                    viewModel.logoutUser()
+                    Toast.makeText(context, "Vous avez été déconnecté 👋", Toast.LENGTH_SHORT).show()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2), contentColor = Color(0xFFB91C1C)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("admin_logout_button"),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Icon(Icons.Default.Logout, contentDescription = "Se déconnecter", modifier = Modifier.size(16.dp), tint = Color(0xFFB91C1C))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("SE DECONNECTER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
     } else {
         // Active Sub-Admin Dashboard View
@@ -392,6 +432,88 @@ fun AdminDashboardView(
                                     if (pendingOrders.size > 10) Color(0xFFD97706) else Color.Gray
                                 }
                             )
+                        }
+                    }
+                }
+            }
+
+            // --- Global Platform Statistics ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = Color(0xFF1D4ED8),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Statistiques Globales Plateforme",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Stat 1: Total Users
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Utilisateurs", fontSize = 10.sp, color = Color(0xFF1E40AF), fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("$totalUsersCount", fontSize = 18.sp, color = Color(0xFF1D4ED8), fontWeight = FontWeight.ExtraBold)
+                                Text("Inscrits", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+
+                        // Stat 2: Active Users
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Membres Actifs", fontSize = 10.sp, color = Color(0xFF065F46), fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("$activeUsersCount", fontSize = 18.sp, color = Color(0xFF10B981), fontWeight = FontWeight.ExtraBold)
+                                Text("Connectés", fontSize = 9.sp, color = Color.Gray)
+                            }
+                        }
+
+                        // Stat 3: Total Distributed Coins
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("N-Coins 🪙", fontSize = 10.sp, color = Color(0xFF92400E), fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("$totalDistributedNCoins", fontSize = 16.sp, color = Color(0xFFD97706), fontWeight = FontWeight.ExtraBold)
+                                Text("Distribués", fontSize = 9.sp, color = Color.Gray)
+                            }
                         }
                     }
                 }
@@ -553,6 +675,171 @@ fun AdminDashboardView(
                 }
             }
 
+            // --- Commissions & Encaissement (Commissions Ledger) ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Payments,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Commissions de Livraison (5%)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+
+                    val deliveredOrders = remember(orders) { orders.filter { it.status == "Livré & Payé" } }
+
+                    if (deliveredOrders.isEmpty()) {
+                        Text(
+                            text = "Aucune commission en attente (validez une livraison d'abord).",
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        deliveredOrders.forEach { order ->
+                            val commissionFCFA = (order.productPrice * 0.05).toInt()
+                            val commissionCoins = if (order.payInNCoins) (order.coinsCost * 0.05).toInt() else 0
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "CMD #${order.id}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF1E293B)
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (order.commissionCashed) Color(0xFFD1FAE5) else Color(0xFFFEE2E2))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = if (order.commissionCashed) "Encaissé ✅" else "En attente d'encaissement ⏳",
+                                                color = if (order.commissionCashed) Color(0xFF047857) else Color(0xFF991B1B),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = order.productTitle,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF0F172A)
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Prix : " + if (order.payInNCoins) "${order.coinsCost} N-Coins" else "${order.productPrice.toLocaleString()} FCFA",
+                                            fontSize = 11.sp,
+                                            color = Color.Gray
+                                        )
+                                        Text(
+                                            text = "Vendeur : ${order.sellerName}",
+                                            fontSize = 11.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFFFFBEB))
+                                            .padding(10.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "COMMISSION DUE (5%) :",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFB45309)
+                                                )
+                                                Text(
+                                                    text = if (order.payInNCoins) {
+                                                        "${commissionCoins} N-Coins"
+                                                    } else {
+                                                        "${commissionFCFA.toLocaleString()} FCFA"
+                                                    },
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color(0xFFD97706)
+                                                )
+                                            }
+
+                                            // J'ai encaissé Button / Checkbox
+                                            if (order.commissionCashed) {
+                                                Button(
+                                                    onClick = {},
+                                                    enabled = false,
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        disabledContainerColor = Color(0xFF10B981).copy(alpha = 0.2f),
+                                                        disabledContentColor = Color(0xFF10B981)
+                                                    ),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(12.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("C'EST ENCAISSÉ !", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            } else {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.cashCommission(order.id)
+                                                        Toast.makeText(context, "Commission de #${order.id} marquée comme encaissée ! ✅", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("J'AI ENCAISSÉ 💵", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // --- QR Code Scanner Simulation ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -606,7 +893,7 @@ fun AdminDashboardView(
                         Slider(
                             value = viewsRatioDraft,
                             onValueChange = { viewsRatioDraft = it },
-                            valueRange = 5f..50f,
+                            valueRange = 5f..1000f,
                             colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
                         )
                     }
@@ -709,11 +996,99 @@ fun AdminDashboardView(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    Text(
+                        text = "Dimensions de l'image obligatoires : 1200 x 400 pixels (Format Paysage 3:1)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFB91C1C)
+                    )
+                    Text(
+                        text = "L'image importée doit faire exactement 1200x400 pour couvrir parfaitement tout le cadre publicitaire du marché local sans déformation.",
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Image Preview Frame
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (adImageUrlInput.isNotBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(adImageUrlInput)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Aperçu de l'affiche publicitaire",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = "Aucune image importée (Fond vert par défaut)",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Import from phone button
+                        Button(
+                            onClick = {
+                                imagePickerLauncher.launch("image/*")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Importer de mon tél", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Delete Image button
+                        Button(
+                            onClick = {
+                                adImageUrlInput = ""
+                                viewModel.updateAdminAd(
+                                    title = adTitleInput,
+                                    text = adTextInput,
+                                    imageUrl = ""
+                                )
+                                Toast.makeText(context, "Image de l'affiche publicitaire supprimée !", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Supprimer l'image", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedTextField(
                         value = adImageUrlInput,
                         onValueChange = { adImageUrlInput = it },
-                        label = { Text("Lien de l'image de fond (Optionnel)", fontSize = 11.sp) },
-                        placeholder = { Text("Laisser vide pour conserver le vert d'origine") },
+                        label = { Text("Ou collez un lien URL d'image (Optionnel)", fontSize = 11.sp) },
+                        placeholder = { Text("https://exemple.com/banniere.png") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -734,7 +1109,7 @@ fun AdminDashboardView(
                             )
                             Toast.makeText(context, "Affiche publicitaire mise à jour avec succès !", Toast.LENGTH_SHORT).show()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E)),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -820,6 +1195,37 @@ fun AdminDashboardView(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isBackingUp) "SAUVEGARDE EN COURS..." else "FORCER LA SAUVEGARDE FIREBASE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Admin Logout Button in Active Dashboard
+            Button(
+                onClick = {
+                    viewModel.logoutUser()
+                    Toast.makeText(context, "Vous avez été déconnecté 👋", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("admin_logout_active_button"),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2), contentColor = Color(0xFFB91C1C)),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = "Se déconnecter",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFFB91C1C)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SE DÉCONNECTER",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )

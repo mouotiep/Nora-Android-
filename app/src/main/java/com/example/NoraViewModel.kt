@@ -1,13 +1,26 @@
 package com.example
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import java.util.UUID
 
-class NoraViewModel : ViewModel() {
+class NoraViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val sharedPrefs = application.getSharedPreferences("nora_prefs", Context.MODE_PRIVATE)
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+
+
 
     // Active Role state: Acheteur, Créateur, Admin
     private val _activeRole = MutableStateFlow("Acheteur")
@@ -54,7 +67,7 @@ class NoraViewModel : ViewModel() {
     val walletNCoins: StateFlow<Int> = _walletNCoins.asStateFlow()
 
     // Monetary configurations
-    private val _viewsRatio = MutableStateFlow(10f) // 10 views = 1 N Coin
+    private val _viewsRatio = MutableStateFlow(1000f) // 1000 views = 1 N Coin
     val viewsRatio: StateFlow<Float> = _viewsRatio.asStateFlow()
 
     private val _conversionRate = MutableStateFlow(5f) // 1 N Coin = 5 FCFA (Default, ranges from 1 to 10)
@@ -67,6 +80,10 @@ class NoraViewModel : ViewModel() {
     // Active conversation detail
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
+
+    fun setActiveChatId(id: String?) {
+        _activeChatId.value = id
+    }
 
     // User Profile
     private val _userProfile = MutableStateFlow(UserProfile())
@@ -87,24 +104,65 @@ class NoraViewModel : ViewModel() {
     }
 
     // Orders lists
-    private val _orders = MutableStateFlow<List<NoraOrder>>(
+    private val _orders = MutableStateFlow<List<NoraOrder>>(emptyList())
+    val orders: StateFlow<List<NoraOrder>> = _orders.asStateFlow()
+
+    // Global admin stats
+    private val _totalUsersCount = MutableStateFlow(1)
+    val totalUsersCount: StateFlow<Int> = _totalUsersCount.asStateFlow()
+
+    private val _activeUsersCount = MutableStateFlow(1)
+    val activeUsersCount: StateFlow<Int> = _activeUsersCount.asStateFlow()
+
+    private val _totalDistributedNCoins = MutableStateFlow(100)
+    val totalDistributedNCoins: StateFlow<Int> = _totalDistributedNCoins.asStateFlow()
+
+    // Notification system
+    private val _notifications = MutableStateFlow<List<String>>(
         listOf(
-            NoraOrder("order-101", "p-1", "Kaba Ndondo Royal Sawa", 15000, "Amina Yaoundé", "+237 677 111 222", "Sawa Elegance", "+237 675 001 002", false, 0, "En attente de livraison", "Aujourd'hui"),
-            NoraOrder("order-102", "p-2", "Pagne Bamoun Tissé", 35000, "Jean Douala", "+237 699 333 444", "Les Merveilles du Noun", "+237 675 001 003", true, 3500, "En attente de livraison", "Aujourd'hui"),
-            NoraOrder("order-103", "p-3", "Poivre Blanc de Penja Premium", 5000, "Oumarou Garoua", "+237 688 555 666", "Saveurs du Cameroun", "+237 675 001 004", false, 0, "En attente de livraison", "Aujourd'hui"),
-            NoraOrder("order-104", "p-4", "Panier Tressé de Maroua", 8000, "Chef Bayam", "+237 677 222 333", "Artisans du Nord", "+237 675 001 005", false, 0, "En attente de livraison", "Hier"),
-            NoraOrder("order-105", "p-5", "Sac en Cuir Artisanal", 18000, "Marc Fm", "+237 655 444 555", "Artisans du Nord", "+237 675 001 005", true, 1800, "En attente de livraison", "Hier"),
-            NoraOrder("order-106", "p-6", "Sculpture Girafe en Bois", 25000, "Florence Bafoussam", "+237 677 999 888", "Les Merveilles du Noun", "+237 675 001 003", false, 0, "En attente de livraison", "Hier"),
-            NoraOrder("order-107", "p-7", "Kaba Moderne Évasé", 20000, "Sonia Douala", "+237 699 777 888", "Sawa Elegance", "+237 675 001 002", false, 0, "En attente de livraison", "Il y a 2 jours"),
-            NoraOrder("order-108", "p-8", "Miel Sauvage de l'Adamaoua", 6000, "Pierre Yaoundé", "+237 655 888 999", "Saveurs du Cameroun", "+237 675 001 004", true, 600, "En attente de livraison", "Il y a 2 jours"),
-            NoraOrder("order-109", "p-9", "Boubou d'apparat brodé", 45000, "Aliou Garoua", "+237 688 222 111", "Artisans du Nord", "+237 675 001 005", false, 0, "En attente de livraison", "Il y a 2 jours"),
-            NoraOrder("order-110", "p-10", "Masque Traditionnel Bamoun", 30000, "Idriss Yaoundé", "+237 677 333 444", "Les Merveilles du Noun", "+237 675 001 003", true, 3000, "En attente de livraison", "Il y a 3 jours"),
-            NoraOrder("order-111", "p-11", "Épices de Penja pour Achu", 4500, "Mireille Buea", "+237 655 111 000", "Saveurs du Cameroun", "+237 675 001 004", false, 0, "En attente de livraison", "Il y a 3 jours"),
-            NoraOrder("order-112", "p-12", "Tissu Ndop Authentique", 50000, "Samuel Douala", "+237 699 000 111", "Les Merveilles du Noun", "+237 675 001 003", false, 0, "En attente de livraison", "Il y a 3 jours"),
-            NoraOrder("order-113", "p-13", "Calebasse Ornée du Noun", 12000, "Therese Yaoundé", "+237 677 444 555", "Les Merveilles du Noun", "+237 675 001 003", true, 1200, "En attente de livraison", "Il y a 4 jours")
+            "Bienvenue sur Nora Cameroun ! 🎉",
+            "Votre compte a été crédité de 100 N-Coins de bienvenue ! 🪙"
         )
     )
-    val orders: StateFlow<List<NoraOrder>> = _orders.asStateFlow()
+    val notifications: StateFlow<List<String>> = _notifications.asStateFlow()
+
+    private val _hasUnreadNotifications = MutableStateFlow(true)
+    val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
+
+    private val _currentNotification = MutableStateFlow<String?>(null)
+    val currentNotification: StateFlow<String?> = _currentNotification.asStateFlow()
+
+    fun postNotification(text: String) {
+        _notifications.update { listOf(text) + it }
+        _currentNotification.value = text
+        _hasUnreadNotifications.value = true
+    }
+
+    fun markNotificationsAsRead() {
+        _hasUnreadNotifications.value = false
+    }
+
+    fun clearNotificationHistory() {
+        _notifications.value = emptyList()
+        _hasUnreadNotifications.value = false
+    }
+
+    fun clearNotification() {
+        _currentNotification.value = null
+    }
+
+    fun cashCommission(orderId: String) {
+        _orders.update { list ->
+            list.map { o ->
+                if (o.id == orderId) {
+                    o.copy(commissionCashed = true)
+                } else {
+                    o
+                }
+            }
+        }
+        postNotification("La commission de la commande #$orderId a été encaissée avec succès ! ✅")
+    }
 
     // Sub-admin states for multi-agent coordination
     private val _isAdmin1Assigned = MutableStateFlow(false)
@@ -142,38 +200,7 @@ class NoraViewModel : ViewModel() {
     }
 
     // Simulated list of pending Shop KYC applications for Admin dashboard
-    private val _kycApplications = MutableStateFlow<List<UserProfile>>(
-        listOf(
-            UserProfile(
-                id = "user-alice",
-                name = "Alice Kamga",
-                whatsappNumber = "+237 677 889 900",
-                profilePic = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-                kycStatus = "En Attente",
-                shopName = "Bafoussam Royal Crafts",
-                shopDescription = "Tissages et sculptures artisanales de l'Ouest Cameroun.",
-                shopCategory = "Objets d'Art",
-                shopLocation = "Bafoussam",
-                agreedToFee = true,
-                idCardPhoto = "Carte Nationale d'Identité - Validée",
-                selfiePhoto = "Selfie avec CNI en main - Reçu"
-            ),
-            UserProfile(
-                id = "user-bob",
-                name = "Bob Sawa",
-                whatsappNumber = "+237 699 112 233",
-                profilePic = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-                kycStatus = "En Attente",
-                shopName = "Sawa Sea Products",
-                shopDescription = "Épices et poissons fumés traditionnels des côtes sawa.",
-                shopCategory = "Alimentation",
-                shopLocation = "Douala",
-                agreedToFee = true,
-                idCardPhoto = "Passeport - Reçu",
-                selfiePhoto = "Selfie d'identité - Reçu"
-            )
-        )
-    )
+    private val _kycApplications = MutableStateFlow<List<UserProfile>>(emptyList())
     val kycApplications: StateFlow<List<UserProfile>> = _kycApplications.asStateFlow()
 
     // Admin Custom Advertisement banner poster (Marketplace Header Background)
@@ -368,28 +395,6 @@ class NoraViewModel : ViewModel() {
     private val _conversations = MutableStateFlow<List<Conversation>>(
         listOf(
             Conversation(
-                id = "conv-1",
-                contactName = "Atelier de Foumban",
-                lastMessage = "Merci pour votre commande !",
-                lastTime = "Il y a 2h",
-                messages = listOf(
-                    Message("moi", "Bonjour, je souhaite commander un Pagne Royal Bamoun.", "10:15"),
-                    Message("contact", "Bonjour ! Oui bien sûr, nous en avons encore 8 en stock.", "10:20"),
-                    Message("moi", "Parfait, je valide le paiement !", "10:25"),
-                    Message("contact", "Merci pour votre commande ! Elle sera prête cet après-midi.", "10:30")
-                )
-            ),
-            Conversation(
-                id = "conv-2",
-                contactName = "Créatrice Sawa",
-                lastMessage = "Le Kaba Ndondo est disponible en taille M et L.",
-                lastTime = "Hier",
-                messages = listOf(
-                    Message("moi", "Bonjour, quelles sont les tailles disponibles pour le Kaba Ndondo ?", "Hier"),
-                    Message("contact", "Le Kaba Ndondo est disponible en taille M et L.", "Hier")
-                )
-            ),
-            Conversation(
                 id = "conv-3",
                 contactName = "Administrateur Nora (Coordination)",
                 lastMessage = "Bonjour, bienvenue chez Nora pour vous servir",
@@ -411,12 +416,7 @@ class NoraViewModel : ViewModel() {
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
 
     // Moderation reports
-    private val _reportedItems = MutableStateFlow<List<ReportedItem>>(
-        listOf(
-            ReportedItem("rep-1", "Reel de @mauvais_acteur", "Contenu inapproprié ou mensonger", "Vidéo", "Cindy_Nora"),
-            ReportedItem("rep-2", "Robe Copiée Bamenda", "Plagiat suspecté d'une boutique déposée", "Produit", "Artisans du Nord")
-        )
-    )
+    private val _reportedItems = MutableStateFlow<List<ReportedItem>>(emptyList())
     val reportedItems: StateFlow<List<ReportedItem>> = _reportedItems.asStateFlow()
 
     // Simulated registered accounts database
@@ -484,18 +484,24 @@ class NoraViewModel : ViewModel() {
         _registeredAccounts.update { it + (trimmedEmail to newAccount) }
         _userProfile.value = newProfile
         _activeRole.value = "Acheteur"
+        _currentTabIndex.value = 1 // Open Boutiques tab first on registration
+        _totalUsersCount.update { it + 1 }
+        _activeUsersCount.update { it + 1 }
+        _totalDistributedNCoins.update { it + 100 } // Dynamic N-Coins welcome gift
+        postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +100 N-Coins de bienvenue offerts !")
         return true
     }
 
     fun logoutUser() {
         val current = _userProfile.value
-        if (current.email.isNotEmpty() && current.email != "mouotiep@gmail.com") {
-            val currentAccount = _registeredAccounts.value[current.email]
-            if (currentAccount != null) {
-                _registeredAccounts.update {
-                    it + (current.email to currentAccount.copy(profile = current.copy(isLoggedIn = false)))
-                }
+        val currentAccount = _registeredAccounts.value[current.email]
+        if (currentAccount != null) {
+            _registeredAccounts.update {
+                it + (current.email to currentAccount.copy(profile = current.copy(isLoggedIn = false)))
             }
+        }
+        if (current.email == "mouotiep@gmail.com") {
+            releaseSubAdmin()
         }
         _userProfile.value = UserProfile()
         _activeRole.value = "Acheteur"
@@ -822,10 +828,9 @@ class NoraViewModel : ViewModel() {
 
     fun calculateCoinsForViews(views: Int): Int {
         if (views <= 0) return 0
-        // Scaled mapping: 1 to 10 N-Coins based on views up to 10,000 views.
-        // Specifically, views <= 1000 is 1 coin, <= 2000 is 2 coins... up to 10 coins for 10,000 views and beyond.
-        val coins = (views / 1000) + 1
-        return coins.coerceIn(1, 10)
+        val ratio = _viewsRatio.value.coerceAtLeast(1f)
+        val coins = (views / ratio).toInt() + 1
+        return coins.coerceIn(1, 100000)
     }
 
     fun recordUniqueView(reelId: String): Boolean {
@@ -961,6 +966,14 @@ class NoraViewModel : ViewModel() {
             deliveryCost = deliveryCost
         )
         _products.update { it + newProduct }
+    }
+
+    fun deleteProduct(productId: String) {
+        _products.update { list -> list.filter { it.id != productId } }
+    }
+
+    fun deleteReel(reelId: String) {
+        _reels.update { list -> list.filter { it.id != reelId } }
     }
 
     // Purchase product & create order
@@ -1277,5 +1290,74 @@ class NoraViewModel : ViewModel() {
 
     fun setConversionRate(rate: Float) {
         _conversionRate.value = rate
+    }
+
+    init {
+        // 1. Load registered accounts from SharedPreferences (fallback to default value)
+        val registeredAccountsJson = sharedPrefs.getString("registered_accounts_json", null)
+        if (!registeredAccountsJson.isNullOrBlank()) {
+            try {
+                val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Account::class.java)
+                val loadedAccounts = moshi.adapter<Map<String, Account>>(mapType).fromJson(registeredAccountsJson)
+                if (loadedAccounts != null) {
+                    _registeredAccounts.value = loadedAccounts
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // 2. Load user profile and check session expiry
+        val userProfileJson = sharedPrefs.getString("user_profile_json", null)
+        val expiryTime = sharedPrefs.getLong("session_expiry", 0L)
+        val now = System.currentTimeMillis()
+        
+        if (!userProfileJson.isNullOrBlank() && now < expiryTime) {
+            try {
+                val loadedProfile = moshi.adapter(UserProfile::class.java).fromJson(userProfileJson)
+                if (loadedProfile != null && loadedProfile.isLoggedIn) {
+                    _userProfile.value = loadedProfile
+                    _activeRole.value = if (loadedProfile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
+                    
+                    // RENEW session for another 1 year upon app opening
+                    val newExpiry = now + (365L * 24 * 60 * 60 * 1000)
+                    sharedPrefs.edit().putLong("session_expiry", newExpiry).apply()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // 3. Start observing updates to auto-save to SharedPreferences
+        viewModelScope.launch {
+            combine(_userProfile, _registeredAccounts) { profile, accounts ->
+                Pair(profile, accounts)
+            }.collect { (profile, accounts) ->
+                saveSession(profile, accounts)
+            }
+        }
+    }
+
+    private fun saveSession(profile: UserProfile, accounts: Map<String, Account>) {
+        try {
+            val userProfileJson = moshi.adapter(UserProfile::class.java).toJson(profile)
+            val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Account::class.java)
+            val registeredAccountsJson = moshi.adapter<Map<String, Account>>(mapType).toJson(accounts)
+            
+            val expiryTime = if (profile.isLoggedIn) {
+                val currentExpiry = sharedPrefs.getLong("session_expiry", 0L)
+                if (currentExpiry > System.currentTimeMillis()) currentExpiry else System.currentTimeMillis() + (365L * 24 * 60 * 60 * 1000)
+            } else {
+                0L
+            }
+            
+            sharedPrefs.edit()
+                .putString("user_profile_json", userProfileJson)
+                .putString("registered_accounts_json", registeredAccountsJson)
+                .putLong("session_expiry", expiryTime)
+                .apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

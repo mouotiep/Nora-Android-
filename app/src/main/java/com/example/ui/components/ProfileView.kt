@@ -192,6 +192,29 @@ fun ProfileView(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.logoutUser()
+                        Toast.makeText(context, "Vous avez été déconnecté 👋", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("logout_button"),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2), contentColor = Color(0xFFB91C1C))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = "Se déconnecter",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFFB91C1C)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Se déconnecter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 

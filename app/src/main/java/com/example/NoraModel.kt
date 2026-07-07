@@ -117,7 +117,8 @@ data class NoraOrder(
     val payInNCoins: Boolean,
     val coinsCost: Int,
     val status: String, // "En attente de livraison", "Livré & Payé"
-    val date: String
+    val date: String,
+    val commissionCashed: Boolean = false
 )
 
 data class Account(

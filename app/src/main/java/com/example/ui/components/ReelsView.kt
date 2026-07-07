@@ -50,6 +50,8 @@ fun ReelsView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val reels by viewModel.reels.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+    val viewsRatio by viewModel.viewsRatio.collectAsState()
     val pagerState = rememberPagerState(pageCount = { reels.size })
 
     // Report Dialog State
@@ -104,6 +106,8 @@ fun ReelsView(
                 val reel = reels[page]
                 ReelPageItem(
                     reel = reel,
+                    viewsRatio = viewsRatio,
+                    isMyReel = reel.creatorName == userProfile.name,
                     onLike = { viewModel.toggleLike(reel.id) },
                     onFollow = { viewModel.toggleFollow(reel.id) },
                     onCommentsClick = { showCommentsReelId = reel.id },
@@ -118,7 +122,11 @@ fun ReelsView(
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "Partager via"))
                     },
-                    onReport = { reportingReel = reel }
+                    onReport = { reportingReel = reel },
+                    onDelete = {
+                        viewModel.deleteReel(reel.id)
+                        Toast.makeText(context, "🗑️ Séquence Reel supprimée !", Toast.LENGTH_SHORT).show()
+                    }
                 )
             }
         }
@@ -816,11 +824,14 @@ fun ReelsView(
 @Composable
 fun ReelPageItem(
     reel: ReelVideo,
+    viewsRatio: Float,
+    isMyReel: Boolean,
     onLike: () -> Unit,
     onFollow: () -> Unit,
     onCommentsClick: () -> Unit,
     onShare: () -> Unit,
-    onReport: () -> Unit
+    onReport: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var downloadProgress by remember(reel.id) { mutableStateOf(0) }
     var isStreamingFinished by remember(reel.id) { mutableStateOf(false) }
@@ -1100,7 +1111,7 @@ fun ReelPageItem(
                     )
                 }
 
-                val coinGains = (reel.viewsCount / 1000 + 1).coerceIn(1, 10)
+                val coinGains = (reel.viewsCount / viewsRatio.toInt().coerceAtLeast(1) + 1).coerceIn(1, 100000)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1222,6 +1233,31 @@ fun ReelPageItem(
                     color = Color.White,
                     fontSize = 10.sp
                 )
+            }
+
+            // Supprimer button (for current user's owned Reels)
+            if (isMyReel) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444).copy(alpha = 0.85f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = Color.White
+                        )
+                    }
+                    Text(
+                        text = "Supprimer",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

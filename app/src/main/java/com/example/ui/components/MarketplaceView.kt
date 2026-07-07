@@ -1024,6 +1024,25 @@ fun MarketplaceView(
                             Text("Contacter sur WhatsApp (+237)", fontSize = 11.sp)
                         }
 
+                        // If current user is the owner of this product, let them delete it!
+                        if (prod.shopId == userProfile.id) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.deleteProduct(prod.id)
+                                    Toast.makeText(context, "🗑️ Produit supprimé avec succès !", Toast.LENGTH_SHORT).show()
+                                    selectedProductDetails = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Supprimer mon produit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
                         // Report button
                         TextButton(
                             onClick = {
