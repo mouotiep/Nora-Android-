@@ -67,6 +67,7 @@ fun MarketplaceView(
     var reportReason by remember { mutableStateOf("") }
     var showKycDialog by remember { mutableStateOf(false) }
     var showAddProductDialog by remember { mutableStateOf(false) }
+    var showShopManagerDialog by remember { mutableStateOf(false) }
 
     // Filter products: hide banned, filter out administrator products, filter by category/search, prioritize user interests
     val filteredProducts = remember(products, searchQuery, selectedCategory, userProfile.interests) {
@@ -312,26 +313,39 @@ fun MarketplaceView(
                         )
                     }
                     
-                    Button(
-                        onClick = {
-                            if (userProfile.kycStatus == "Certifié") {
-                                showAddProductDialog = true
-                            } else if (userProfile.kycStatus == "Aucun" || userProfile.kycStatus == "Révoqué") {
-                                showKycDialog = true
-                            } else {
-                                Toast.makeText(context, "Statut KYC actuel: ${userProfile.kycStatus}", Toast.LENGTH_SHORT).show()
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (userProfile.kycStatus == "Certifié") {
+                            Button(
+                                onClick = { showShopManagerDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Gérer Boutique", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = if (userProfile.kycStatus == "Certifié") "Ajouter Produit" else "Gérer KYC",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        } else {
+                            Button(
+                                onClick = {
+                                    if (userProfile.kycStatus == "Aucun" || userProfile.kycStatus == "Révoqué") {
+                                        showKycDialog = true
+                                    } else {
+                                        Toast.makeText(context, "Statut KYC actuel: ${userProfile.kycStatus}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Gérer KYC",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -375,7 +389,7 @@ fun MarketplaceView(
     // Product Details & Order Dialog
     if (selectedProductDetails != null) {
         val prod = selectedProductDetails!!
-        val coinsPrice = (prod.price / conversionRate).toInt().coerceAtLeast(1)
+        val coinsPrice = (prod.price.toDouble() / conversionRate).coerceAtLeast(0.1)
 
         val shopReviews by viewModel.shopReviews.collectAsState()
         val activeShopReviews = remember(shopReviews, prod.shopId) {
@@ -390,9 +404,10 @@ fun MarketplaceView(
 
         var useNCoinsDiscount by remember { mutableStateOf(false) }
         val maxAffordableCoins = walletNCoins
-        val coinsNeededForFullPrice = (prod.price / conversionRate).toInt().coerceAtLeast(1)
-        val maxCoinsToUse = remember(maxAffordableCoins, coinsNeededForFullPrice) {
-            minOf(maxAffordableCoins, coinsNeededForFullPrice)
+        val maxDiscountFCFA = prod.price * 0.05
+        val maxDiscountCoins = maxDiscountFCFA / conversionRate
+        val maxCoinsToUse = remember(maxAffordableCoins, maxDiscountCoins) {
+            minOf(maxAffordableCoins, maxDiscountCoins)
         }
         var coinsToUseForDiscount by remember(maxCoinsToUse) { mutableStateOf(maxCoinsToUse) }
 
@@ -488,7 +503,7 @@ fun MarketplaceView(
                             color = Color(0xFF111827)
                         )
                         Text(
-                            text = "ou $coinsPrice N Coins",
+                            text = "ou ${coinsPrice.toLocaleString()} N Coins",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF059669)
@@ -520,8 +535,18 @@ fun MarketplaceView(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(prod.shopName, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 if (prod.isCertified) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(Icons.Default.Verified, contentDescription = "Certified", tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFFD1FAE5))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.Verified, contentDescription = "Certified", tint = Color(0xFF065F46), modifier = Modifier.size(11.dp))
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text("Certifié", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF065F46))
+                                    }
                                 }
                             }
                             Text("Artisan Vérifié", fontSize = 10.sp, color = Color.Gray)
@@ -839,28 +864,40 @@ fun MarketplaceView(
                                             )
                                             Column {
                                                 Text(
-                                                    text = "Obtenir une réduction",
+                                                    text = "Obtenir une réduction (Max 5%)",
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF1E293B)
                                                 )
                                                 Text(
-                                                    text = "Solde : $walletNCoins N Coins (${(walletNCoins * conversionRate).toInt()} FCFA)",
+                                                    text = "Solde : ${walletNCoins.toLocaleString()} N Coins (${(walletNCoins * conversionRate).toInt()} FCFA)",
                                                     fontSize = 10.sp,
                                                     color = Color.Gray
                                                 )
+                                                Text(
+                                                    text = "Limite : -5% du prix (${(prod.price * 0.05).toInt()} FCFA max)",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color(0xFFB45309)
+                                                )
                                             }
                                         }
+                                        val hasCoins = walletNCoins > 0.0
                                         Switch(
-                                            checked = useNCoinsDiscount,
+                                            checked = useNCoinsDiscount && hasCoins,
                                             onCheckedChange = { 
+                                                if (!hasCoins) {
+                                                    Toast.makeText(context, "Votre solde de N-Coins est à zéro !", Toast.LENGTH_SHORT).show()
+                                                    return@Switch
+                                                }
                                                 useNCoinsDiscount = it
                                                 if (it) {
                                                     coinsToUseForDiscount = maxCoinsToUse
                                                 } else {
-                                                    coinsToUseForDiscount = 0
+                                                    coinsToUseForDiscount = 0.0
                                                 }
                                             },
+                                            enabled = hasCoins,
                                             colors = SwitchDefaults.colors(
                                                 checkedThumbColor = Color.White,
                                                 checkedTrackColor = Color(0xFF10B981)
@@ -890,7 +927,7 @@ fun MarketplaceView(
                                                 // Minus button
                                                 IconButton(
                                                     onClick = {
-                                                        coinsToUseForDiscount = (coinsToUseForDiscount - 10).coerceAtLeast(0)
+                                                        coinsToUseForDiscount = (coinsToUseForDiscount - 0.25).coerceAtLeast(0.0)
                                                     },
                                                     modifier = Modifier.size(28.dp)
                                                 ) {
@@ -898,7 +935,7 @@ fun MarketplaceView(
                                                 }
 
                                                 Text(
-                                                    text = "$coinsToUseForDiscount N Coins",
+                                                    text = "${coinsToUseForDiscount.toLocaleString()} N Coins",
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF0F172A)
@@ -907,7 +944,7 @@ fun MarketplaceView(
                                                 // Plus button
                                                 IconButton(
                                                     onClick = {
-                                                        coinsToUseForDiscount = (coinsToUseForDiscount + 10).coerceAtMost(maxCoinsToUse)
+                                                        coinsToUseForDiscount = (coinsToUseForDiscount + 0.25).coerceAtMost(maxCoinsToUse)
                                                     },
                                                     modifier = Modifier.size(28.dp)
                                                 ) {
@@ -918,7 +955,7 @@ fun MarketplaceView(
 
                                         Slider(
                                             value = coinsToUseForDiscount.toFloat(),
-                                            onValueChange = { coinsToUseForDiscount = it.toInt() },
+                                            onValueChange = { coinsToUseForDiscount = Math.round(it * 4.0) / 4.0 },
                                             valueRange = 0f..maxCoinsToUse.toFloat(),
                                             colors = SliderDefaults.colors(
                                                 thumbColor = Color(0xFF10B981),
@@ -956,18 +993,24 @@ fun MarketplaceView(
                             // Buy with cash-on-delivery (FCFA)
                             Button(
                                 onClick = {
+                                    if (useNCoinsDiscount && coinsToUseForDiscount > walletNCoins) {
+                                        Toast.makeText(context, "Solde de N Coins insuffisant pour cette réduction !", Toast.LENGTH_LONG).show()
+                                        return@Button
+                                    }
                                     val order = viewModel.purchaseProduct(
                                         product = prod, 
                                         payInNCoins = false, 
-                                        coinsUsedForDiscount = if (useNCoinsDiscount) coinsToUseForDiscount else 0
+                                        coinsUsedForDiscount = if (useNCoinsDiscount) coinsToUseForDiscount else 0.0
                                     )
                                     if (order != null) {
                                         if (useNCoinsDiscount && coinsToUseForDiscount > 0) {
-                                            Toast.makeText(context, "Commande validée ! Réduction de ${discountAmountFCFA.toLocaleString()} FCFA appliquée en utilisant $coinsToUseForDiscount N Coins. Reste à payer : ${finalPriceFCFA.toLocaleString()} FCFA.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "Commande validée ! Réduction de ${discountAmountFCFA.toLocaleString()} FCFA appliquée en utilisant ${coinsToUseForDiscount.toLocaleString()} N Coins. Reste à payer : ${finalPriceFCFA.toLocaleString()} FCFA.", Toast.LENGTH_LONG).show()
                                         } else {
                                             Toast.makeText(context, "Commande validée ! Admin alerté pour coordonner la livraison.", Toast.LENGTH_LONG).show()
                                         }
                                         selectedProductDetails = null
+                                    } else {
+                                        Toast.makeText(context, "Échec de l'achat : vérifiez votre stock ou votre solde de N Coins !", Toast.LENGTH_LONG).show()
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -981,48 +1024,34 @@ fun MarketplaceView(
                                 }
                                 Text(buttonText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
- 
-                             // Buy with N Coins
-                             Button(
-                                 onClick = {
-                                     if (walletNCoins < coinsPrice) {
-                                         Toast.makeText(context, "N Coins insuffisants. Gagnez-en en publiant des Reels !", Toast.LENGTH_LONG).show()
-                                         return@Button
-                                     }
-                                     val order = viewModel.purchaseProduct(prod, payInNCoins = true)
-                                     if (order != null) {
-                                         Toast.makeText(context, "Paiement en N Coins effectué ! Admin alerté.", Toast.LENGTH_LONG).show()
-                                         selectedProductDetails = null
-                                     }
-                                 },
-                                 modifier = Modifier.fillMaxWidth(),
-                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
-                                 shape = RoundedCornerShape(8.dp)
-                             ) {
-                                 Text("Acheter avec N Coins (-$coinsPrice)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                             }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD97706),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Achat sécurisé : le paiement de 95% minimum du prix se fait à la livraison. La réduction via N-Coins est plafonnée à 5% maximum.",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF92400E),
+                                        lineHeight = 13.sp
+                                    )
+                                }
+                            }
                         }
 
-                        // WhatsApp Contact Simulation
-                        OutlinedButton(
-                            onClick = {
-                                val url = "https://api.whatsapp.com/send?phone=+237675001002&text=Bonjour,%20je%20suis%20intéressé%20par%20votre%20produit%20'${prod.title}'"
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        data = Uri.parse(url)
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "WhatsApp non disponible, numéro direct: +237 675 001 002", Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Contacter sur WhatsApp (+237)", fontSize = 11.sp)
-                        }
+
 
                         // If current user is the owner of this product, let them delete it!
                         if (prod.shopId == userProfile.id) {
@@ -1245,6 +1274,13 @@ fun MarketplaceView(
                 }
             }
         }
+    }
+
+    if (showShopManagerDialog) {
+        ShopManagerDialog(
+            onDismiss = { showShopManagerDialog = false },
+            viewModel = viewModel
+        )
     }
 
     // Add Product Dialog (For Certified Shops)
@@ -1631,12 +1667,27 @@ fun ProductCardItem(
                         modifier = Modifier.weight(1f)
                     )
                     if (product.isCertified) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Certified",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(11.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFD1FAE5))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Certified",
+                                tint = Color(0xFF065F46),
+                                modifier = Modifier.size(9.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "Certifié",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF065F46)
+                            )
+                        }
                     }
                 }
             }

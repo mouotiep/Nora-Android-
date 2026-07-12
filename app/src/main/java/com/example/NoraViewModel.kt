@@ -63,8 +63,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     val categories: StateFlow<List<String>> = _categories.asStateFlow()
 
     // Portefeuille (Wallet) states
-    private val _walletNCoins = MutableStateFlow(100)
-    val walletNCoins: StateFlow<Int> = _walletNCoins.asStateFlow()
+    private val _walletNCoins = MutableStateFlow(1.0)
+    val walletNCoins: StateFlow<Double> = _walletNCoins.asStateFlow()
 
     // Monetary configurations
     private val _viewsRatio = MutableStateFlow(1000f) // 1000 views = 1 N Coin
@@ -83,6 +83,13 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setActiveChatId(id: String?) {
         _activeChatId.value = id
+    }
+
+    private val _lastIncomingMessageConvId = MutableStateFlow("conv-3")
+    val lastIncomingMessageConvId: StateFlow<String> = _lastIncomingMessageConvId.asStateFlow()
+
+    fun setLastIncomingMessageConvId(id: String) {
+        _lastIncomingMessageConvId.value = id
     }
 
     // User Profile
@@ -114,14 +121,14 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeUsersCount = MutableStateFlow(1)
     val activeUsersCount: StateFlow<Int> = _activeUsersCount.asStateFlow()
 
-    private val _totalDistributedNCoins = MutableStateFlow(100)
-    val totalDistributedNCoins: StateFlow<Int> = _totalDistributedNCoins.asStateFlow()
+    private val _totalDistributedNCoins = MutableStateFlow(1.0)
+    val totalDistributedNCoins: StateFlow<Double> = _totalDistributedNCoins.asStateFlow()
 
     // Notification system
     private val _notifications = MutableStateFlow<List<String>>(
         listOf(
             "Bienvenue sur Nora Cameroun ! 🎉",
-            "Votre compte a été crédité de 100 N-Coins de bienvenue ! 🪙"
+            "Votre compte a été crédité de 1 N-Coin de bienvenue ! 🪙"
         )
     )
     val notifications: StateFlow<List<String>> = _notifications.asStateFlow()
@@ -410,7 +417,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     // Transactions ledger
     private val _transactions = MutableStateFlow<List<Transaction>>(
         listOf(
-            Transaction("Création du compte", "Crédit de bienvenue", 100, "01 Juil 2026", true)
+            Transaction("Création du compte", "Crédit de bienvenue", 1.0, "01 Juil 2026", true)
         )
     )
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
@@ -450,45 +457,123 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     isLoggedIn = true,
                     onboardingCompleted = true,
                     email = "mouotiep@gmail.com",
-                    kycStatus = "Certifié"
+                    kycStatus = "Certifié",
+                    referralCode = "admin-mouotie"
                 )
             }
             _activeRole.value = "Admin"
+            _walletNCoins.value = 5000.0
             return true
         }
 
         val storedAccount = _registeredAccounts.value[trimmedEmail]
         if (storedAccount != null && storedAccount.password == password) {
-            _userProfile.value = storedAccount.profile.copy(isLoggedIn = true)
-            _activeRole.value = if (storedAccount.profile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
+            val profile = storedAccount.profile
+            val code = if (profile.referralCode.isBlank()) {
+                trimmedEmail.substringBefore("@").lowercase().replace("[^a-z0-9]".toRegex(), "") + "-" + UUID.randomUUID().toString().take(4)
+            } else {
+                profile.referralCode
+            }
+            _userProfile.value = profile.copy(isLoggedIn = true, referralCode = code)
+            _activeRole.value = if (profile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
+            _walletNCoins.value = profile.nCoinsBalance
             return true
         }
         return false
     }
 
-    fun registerUser(email: String, password: String, whatsappNumber: String): Boolean {
+    fun findUserByReferralCodeOrLink(input: String): UserProfile? {
+        if (input.isBlank()) return null
+        
+        // Extract code if it is a URL
+        val code = if (input.startsWith("http")) {
+            input.substringAfterLast("/").trim()
+        } else {
+            input.trim()
+        }
+        val targetCode = code.lowercase()
+        
+        for (account in _registeredAccounts.value.values) {
+            val profile = account.profile
+            val profileCode = profile.referralCode.lowercase()
+            val profileNameCode = profile.name.lowercase().replace(" ", "_")
+            if (profileCode == targetCode || profileNameCode == targetCode) {
+                if (profile.email.isNotEmpty()) {
+                    return profile
+                }
+            }
+        }
+        return null
+    }
+
+    fun registerUser(email: String, password: String, whatsappNumber: String, referredByCode: String? = null): Boolean {
         val trimmedEmail = email.trim()
         val trimmedWhatsapp = whatsappNumber.trim()
         if (trimmedEmail.isBlank() || password.isBlank() || trimmedWhatsapp.isBlank()) return false
         if (_registeredAccounts.value.containsKey(trimmedEmail)) return false
         
+        val uniqueCode = UUID.randomUUID().toString().take(6)
+        val generatedReferralCode = trimmedEmail.substringBefore("@").lowercase().replace("[^a-z0-9]".toRegex(), "") + "-" + uniqueCode
+
         val newProfile = UserProfile(
             id = "user-${UUID.randomUUID()}",
             name = "Nouveau Membre",
             whatsappNumber = trimmedWhatsapp,
             email = trimmedEmail,
             isLoggedIn = true,
-            onboardingCompleted = false
+            onboardingCompleted = false,
+            nCoinsBalance = 1.0,
+            referralCode = generatedReferralCode
         )
         val newAccount = Account(trimmedEmail, password, newProfile)
         _registeredAccounts.update { it + (trimmedEmail to newAccount) }
         _userProfile.value = newProfile
+        _walletNCoins.value = 1.0 // Set welcome wallet balance
         _activeRole.value = "Acheteur"
         _currentTabIndex.value = 1 // Open Boutiques tab first on registration
         _totalUsersCount.update { it + 1 }
         _activeUsersCount.update { it + 1 }
-        _totalDistributedNCoins.update { it + 100 } // Dynamic N-Coins welcome gift
-        postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +100 N-Coins de bienvenue offerts !")
+        _totalDistributedNCoins.update { it + 1 } // Dynamic N-Coins welcome gift
+        postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
+
+        // Process referral reward if any!
+        if (!referredByCode.isNullOrBlank()) {
+            val inviter = findUserByReferralCodeOrLink(referredByCode)
+            if (inviter != null) {
+                val reward = 0.25
+                val inviterEmail = inviter.email
+                val inviterAccount = _registeredAccounts.value[inviterEmail]
+                if (inviterAccount != null) {
+                    val updatedProfile = inviterAccount.profile.copy(
+                        nCoinsBalance = inviterAccount.profile.nCoinsBalance + reward
+                    )
+                    _registeredAccounts.update {
+                        it + (inviterEmail to inviterAccount.copy(profile = updatedProfile))
+                    }
+                    if (_userProfile.value.id == inviter.id) {
+                        _userProfile.value = updatedProfile
+                        _walletNCoins.value = updatedProfile.nCoinsBalance
+                    }
+                    _transactions.update { tList ->
+                        val nList = ArrayList(tList)
+                        nList.add(
+                            0,
+                            Transaction(
+                                title = "Parrainage Nora 👥",
+                                description = "Félicitations ! $trimmedEmail s'est inscrit avec votre lien",
+                                amount = reward,
+                                date = "Aujourd'hui",
+                                isPositive = true
+                            )
+                        )
+                        nList
+                    }
+                    _totalDistributedNCoins.update { it + reward }
+                    postNotification("👥 Parrainage réussi ! ${inviter.name} gagne +${reward.toLocaleString()} N-Coins grâce à l'inscription de $trimmedEmail !")
+                }
+            }
+        }
+
         return true
     }
 
@@ -826,11 +911,10 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     private val _viewedReelIdsByCurrentUser = MutableStateFlow<Set<String>>(emptySet())
     val viewedReelIdsByCurrentUser: StateFlow<Set<String>> = _viewedReelIdsByCurrentUser.asStateFlow()
 
-    fun calculateCoinsForViews(views: Int): Int {
-        if (views <= 0) return 0
+    fun calculateCoinsForViews(views: Int): Double {
+        if (views <= 0) return 0.0
         val ratio = _viewsRatio.value.coerceAtLeast(1f)
-        val coins = (views / ratio).toInt() + 1
-        return coins.coerceIn(1, 100000)
+        return (views.toDouble() / ratio.toDouble()).coerceIn(0.0, 100000.0)
     }
 
     fun recordUniqueView(reelId: String): Boolean {
@@ -851,7 +935,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     val bonusGained = nextCoins - oldCoins
                     
                     if (bonusGained > 0) {
-                        _walletNCoins.update { it + bonusGained }
+                        _walletNCoins.update { it + bonusGained.toDouble() }
                         _transactions.update { tList ->
                             val nList = ArrayList(tList)
                             nList.add(
@@ -859,7 +943,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                                 Transaction(
                                     title = "Bonus Créateur \"${reel.creatorName}\"",
                                     description = "Gains d'audience unique (${nextViews} vues totalisées)",
-                                    amount = bonusGained,
+                                    amount = bonusGained.toDouble(),
                                     date = "Aujourd'hui",
                                     isPositive = true
                                 )
@@ -889,7 +973,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     val bonusGained = nextCoins - oldCoins
 
                     if (bonusGained > 0) {
-                        _walletNCoins.update { it + bonusGained }
+                        _walletNCoins.update { it + bonusGained.toDouble() }
                         _transactions.update { tList ->
                             val nList = ArrayList(tList)
                             nList.add(
@@ -897,7 +981,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                                 Transaction(
                                     title = "Bonus Créateur \"${reel.creatorName}\"",
                                     description = "Généré par +$amount vues de son Reel",
-                                    amount = bonusGained,
+                                    amount = bonusGained.toDouble(),
                                     date = "Aujourd'hui",
                                     isPositive = true
                                 )
@@ -914,10 +998,28 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Simulate referral/invitation signup (Earn 25 N-Coins per registration)
+    // Simulate referral/invitation signup (Earn 0.25 N-Coins per registration)
     fun simulateReferralSignUp(refereeName: String) {
-        val reward = 25
+        val reward = 0.25
         _walletNCoins.update { it + reward }
+        
+        // Definitively register the user in the model accounts database
+        val email = "${refereeName.lowercase().replace(" ", "")}${UUID.randomUUID().toString().take(4)}@nora.cm"
+        val code = refereeName.lowercase().replace(" ", "") + "-" + UUID.randomUUID().toString().take(4)
+        val profile = UserProfile(
+            id = "user-${UUID.randomUUID()}",
+            name = refereeName,
+            email = email,
+            isLoggedIn = false,
+            onboardingCompleted = true,
+            referralCode = code,
+            nCoinsBalance = 1.0
+        )
+        val account = Account(email, "123456", profile)
+        _registeredAccounts.update { it + (email to account) }
+        _totalUsersCount.update { it + 1 }
+        _totalDistributedNCoins.update { it + 1.25 } // 1.0 welcome reward + 0.25 referral bonus
+
         _transactions.update { tList ->
             val nList = ArrayList(tList)
             nList.add(
@@ -977,41 +1079,31 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Purchase product & create order
-    fun purchaseProduct(product: ProductItem, payInNCoins: Boolean, coinsUsedForDiscount: Int = 0): NoraOrder? {
+    fun purchaseProduct(product: ProductItem, payInNCoins: Boolean, coinsUsedForDiscount: Double = 0.0): NoraOrder? {
         if (product.stock <= 0) return null
 
-        val activeUser = _userProfile.value
-        val costInCoins = if (payInNCoins) {
-            (product.price / _conversionRate.value).toInt().coerceAtLeast(1)
-        } else {
-            coinsUsedForDiscount
+        // Enforce the 5% maximum discount rule from N-Coins
+        val maxAllowedDiscountFCFA = product.price * 0.05
+        val maxAllowedDiscountCoins = maxAllowedDiscountFCFA / _conversionRate.value
+
+        if (payInNCoins) {
+            // Under the new policy, paying 100% in N-Coins is not allowed as the discount is capped at 5%
+            return null
         }
 
-        if (payInNCoins && _walletNCoins.value < costInCoins) {
-            return null // Insufficient funds
+        if (coinsUsedForDiscount > maxAllowedDiscountCoins + 0.01) { // allow a very small float tolerance
+            return null // Discount exceeds 5% of product price
         }
-        if (!payInNCoins && coinsUsedForDiscount > 0 && _walletNCoins.value < coinsUsedForDiscount) {
+
+        val activeUser = _userProfile.value
+        val costInCoins = coinsUsedForDiscount
+
+        if (coinsUsedForDiscount > 0.0 && _walletNCoins.value < coinsUsedForDiscount) {
             return null // Insufficient coins for discount
         }
 
         // Deduct N Coins
-        if (payInNCoins) {
-            _walletNCoins.update { it - costInCoins }
-            _transactions.update { tList ->
-                val nList = ArrayList(tList)
-                nList.add(
-                    0,
-                    Transaction(
-                        title = "Achat ${product.title}",
-                        description = "Payé entièrement en N Coins",
-                        amount = -costInCoins,
-                        date = "Aujourd'hui",
-                        isPositive = false
-                    )
-                )
-                nList
-            }
-        } else if (coinsUsedForDiscount > 0) {
+        if (coinsUsedForDiscount > 0.0) {
             _walletNCoins.update { it - coinsUsedForDiscount }
             _transactions.update { tList ->
                 val nList = ArrayList(tList)
@@ -1019,7 +1111,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     0,
                     Transaction(
                         title = "Réduction ${product.title}",
-                        description = "Réduction de ${coinsUsedForDiscount * _conversionRate.value.toInt()} FCFA appliquée",
+                        description = "Réduction de ${(coinsUsedForDiscount * _conversionRate.value).toInt()} FCFA appliquée (Max 5%)",
                         amount = -coinsUsedForDiscount,
                         date = "Aujourd'hui",
                         isPositive = false
@@ -1115,6 +1207,9 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        // Post order validation push notification with precise text requested
+        postNotification("Commande validée par l'administrateur. Vous devez livrer. (CMD #$orderId)")
+
         // Log transaction and simulate fee collection/payouts
         val sellerGains = ord.productPrice
         val adminFee = (sellerGains * 0.05).toInt() // 5% Admin Fee
@@ -1128,7 +1223,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 Transaction(
                     title = "Livraison Validée: #${ord.id}",
                     description = "Produit '${ord.productTitle}' reçu. Paiement de ${ord.productPrice} FCFA effectué.",
-                    amount = if (ord.payInNCoins) ord.coinsCost else 0,
+                    amount = if (ord.payInNCoins) ord.coinsCost else 0.0,
                     date = "À l'instant",
                     isPositive = true
                 )
@@ -1185,11 +1280,13 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     fun sendMessage(conversationId: String, text: String) {
         if (text.trim().isEmpty()) return
         
+        val senderVal = if (_activeRole.value == "Admin") "admin" else "moi"
+        
         _conversations.update { list ->
             list.map { conv ->
                 if (conv.id == conversationId) {
                     val updatedMessages = ArrayList(conv.messages)
-                    updatedMessages.add(Message("moi", text.trim(), "À l'instant"))
+                    updatedMessages.add(Message(senderVal, text.trim(), "À l'instant"))
                     conv.copy(
                         lastMessage = text.trim(),
                         lastTime = "À l'instant",
@@ -1200,6 +1297,57 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
+        _lastIncomingMessageConvId.value = conversationId
+
+        // Post a push notification about the incoming message
+        val senderLabel = if (_activeRole.value == "Admin") {
+            "NorA Support"
+        } else {
+            _userProfile.value.name.ifBlank { "Utilisateur" }
+        }
+        postNotification("Message de $senderLabel : ${text.trim()}")
+    }
+
+    fun adminContactUser(contactName: String, initialMessage: String) {
+        val cleanName = contactName.trim()
+        val existing = _conversations.value.find { it.contactName.equals(cleanName, ignoreCase = true) }
+        val convId = existing?.id ?: "conv-user-${System.currentTimeMillis()}"
+        if (existing == null) {
+            val newConv = Conversation(
+                id = convId,
+                contactName = cleanName,
+                lastMessage = initialMessage,
+                lastTime = "À l'instant",
+                messages = listOf(
+                    Message(
+                        sender = "admin",
+                        text = initialMessage,
+                        time = "À l'instant"
+                    )
+                )
+            )
+            _conversations.update { it + newConv }
+        } else {
+            val updatedMessages = ArrayList(existing.messages)
+            updatedMessages.add(Message("admin", initialMessage, "À l'instant"))
+            _conversations.update { list ->
+                list.map { conv ->
+                    if (conv.id == existing.id) {
+                        conv.copy(
+                            lastMessage = initialMessage,
+                            lastTime = "À l'instant",
+                            messages = updatedMessages
+                        )
+                    } else {
+                        conv
+                    }
+                }
+            }
+        }
+        _lastIncomingMessageConvId.value = convId
+        _activeChatId.value = convId
+        _currentTabIndex.value = 2 // Switch to Chat tab
     }
 
     // Update profile
@@ -1284,6 +1432,10 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Setters for sliders
+    fun creditAdminWallet() {
+        _walletNCoins.update { it + 10.0 }
+    }
+
     fun setViewsRatio(ratio: Float) {
         _viewsRatio.value = ratio
     }
@@ -1317,6 +1469,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 val loadedProfile = moshi.adapter(UserProfile::class.java).fromJson(userProfileJson)
                 if (loadedProfile != null && loadedProfile.isLoggedIn) {
                     _userProfile.value = loadedProfile
+                    _walletNCoins.value = loadedProfile.nCoinsBalance
                     _activeRole.value = if (loadedProfile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
                     
                     // RENEW session for another 1 year upon app opening
@@ -1334,6 +1487,36 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 Pair(profile, accounts)
             }.collect { (profile, accounts) ->
                 saveSession(profile, accounts)
+            }
+        }
+
+        // 4. Synchronize _walletNCoins and _userProfile (Two-way)
+        viewModelScope.launch {
+            _walletNCoins.collect { balance ->
+                if (_userProfile.value.nCoinsBalance != balance) {
+                    _userProfile.update { it.copy(nCoinsBalance = balance) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            _userProfile.collect { profile ->
+                if (_walletNCoins.value != profile.nCoinsBalance) {
+                    _walletNCoins.value = profile.nCoinsBalance
+                }
+            }
+        }
+
+        // 5. Synchronize _userProfile changes back to _registeredAccounts
+        viewModelScope.launch {
+            _userProfile.collect { profile ->
+                if (profile.isLoggedIn && profile.email.isNotEmpty() && profile.email != "mouotiep@gmail.com") {
+                    val existingAccount = _registeredAccounts.value[profile.email]
+                    if (existingAccount != null && existingAccount.profile != profile) {
+                        _registeredAccounts.update {
+                            it + (profile.email to existingAccount.copy(profile = profile))
+                        }
+                    }
+                }
             }
         }
     }

@@ -63,6 +63,7 @@ fun AdminDashboardView(
     val totalUsersCount by viewModel.totalUsersCount.collectAsState()
     val activeUsersCount by viewModel.activeUsersCount.collectAsState()
     val totalDistributedNCoins by viewModel.totalDistributedNCoins.collectAsState()
+    val walletNCoins by viewModel.walletNCoins.collectAsState()
 
     val adminAdTitle by viewModel.adminAdTitle.collectAsState()
     val adminAdText by viewModel.adminAdText.collectAsState()
@@ -75,20 +76,22 @@ fun AdminDashboardView(
     var showScanSimDialog by remember { mutableStateOf(false) }
     var scanOrderIdInput by remember { mutableStateOf("") }
 
-    var viewsRatioDraft by remember { mutableStateOf(viewsRatio) }
-    var conversionRateDraft by remember { mutableStateOf(conversionRate) }
+    var viewsRatioInput by remember { mutableStateOf(viewsRatio.toInt().toString()) }
+    var conversionRateInput by remember { mutableStateOf(conversionRate.toInt().toString()) }
 
     var adTitleInput by remember { mutableStateOf(adminAdTitle) }
     var adTextInput by remember { mutableStateOf(adminAdText) }
     var adImageUrlInput by remember { mutableStateOf(adminAdImageUrl) }
+    
+    var pushNotificationMessage by remember { mutableStateOf("") }
 
     // Synchronize inputs with actual values when admin flows load
     LaunchedEffect(adminAdTitle, adminAdText, adminAdImageUrl, viewsRatio, conversionRate) {
         adTitleInput = adminAdTitle
         adTextInput = adminAdText
         adImageUrlInput = adminAdImageUrl
-        viewsRatioDraft = viewsRatio
-        conversionRateDraft = conversionRate
+        viewsRatioInput = viewsRatio.toInt().toString()
+        conversionRateInput = conversionRate.toInt().toString()
     }
 
     val pendingOrders = remember(orders) { orders.filter { it.status == "En attente de livraison" } }
@@ -511,10 +514,84 @@ fun AdminDashboardView(
                             ) {
                                 Text("N-Coins 🪙", fontSize = 10.sp, color = Color(0xFF92400E), fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("$totalDistributedNCoins", fontSize = 16.sp, color = Color(0xFFD97706), fontWeight = FontWeight.ExtraBold)
+                                Text("${totalDistributedNCoins.toLocaleString()}", fontSize = 16.sp, color = Color(0xFFD97706), fontWeight = FontWeight.ExtraBold)
                                 Text("Distribués", fontSize = 9.sp, color = Color.Gray)
                             }
                         }
+                    }
+                }
+            }
+
+            // --- Mon Compte Administrateur N-Coins ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Mon Solde Administrateur",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "${walletNCoins.toLocaleString()}",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFD97706)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "N-Coins",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFD97706)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.creditAdminWallet()
+                            Toast.makeText(context, "🪙 +10 N-Coins ajoutés à votre solde !", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "+10 N-Coins",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -642,6 +719,51 @@ fun AdminDashboardView(
                                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Acheteur : ${order.buyerName} (${order.buyerWhatsApp})", fontSize = 10.sp, color = Color.Gray)
                                         Text("Date : ${order.date}", fontSize = 10.sp, color = Color.Gray)
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        // Contact Buyer
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.adminContactUser(
+                                                    contactName = order.buyerName,
+                                                    initialMessage = "Bonjour ${order.buyerName}, je vous contacte concernant votre commande #${order.id} de '${order.productTitle}'."
+                                                )
+                                                Toast.makeText(context, "Échange démarré avec l'acheteur ${order.buyerName} !", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB)),
+                                            border = BorderStroke(1.dp, Color(0xFF2563EB)),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Contacter l'acheteur", fontSize = 10.sp)
+                                        }
+
+                                        // Contact Seller
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.adminContactUser(
+                                                    contactName = order.sellerName,
+                                                    initialMessage = "Bonjour ${order.sellerName}, je vous contacte concernant la commande #${order.id} de '${order.productTitle}' vendue par votre boutique."
+                                                )
+                                                Toast.makeText(context, "Échange démarré avec le vendeur ${order.sellerName} !", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF4F46E5)),
+                                            border = BorderStroke(1.dp, Color(0xFF4F46E5)),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Contacter le vendeur", fontSize = 10.sp)
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -885,47 +1007,65 @@ fun AdminDashboardView(
                     }
 
                     // Emission ratio: Views per Coin
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("RATIO D'ÉMISSION", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Text("${viewsRatioDraft.toInt()} Vues = 1 N Coin", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                        }
-                        Slider(
-                            value = viewsRatioDraft,
-                            onValueChange = { viewsRatioDraft = it },
-                            valueRange = 5f..1000f,
-                            colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("RATIO D'ÉMISSION (VUES POUR 1 N COIN)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        OutlinedTextField(
+                            value = viewsRatioInput,
+                            onValueChange = { viewsRatioInput = it.filter { char -> char.isDigit() } },
+                            placeholder = { Text("Ex: 100") },
+                            suffix = { Text("Vues = 1 N Coin", fontSize = 11.sp, color = Color(0xFF10B981)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("views_ratio_input"),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF10B981),
+                                focusedLabelColor = Color(0xFF10B981)
+                            )
                         )
                     }
 
-                    // Conversion rate slider: FCFA per Coin
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("VALEUR DE CONVERSION", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Text("1 N Coin = ${conversionRateDraft.toInt()} FCFA (Modulable)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                        }
-                        Slider(
-                            value = conversionRateDraft,
-                            onValueChange = { conversionRateDraft = it },
-                            valueRange = 1f..10f,
-                            colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
+                    // Conversion rate: FCFA per Coin
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("VALEUR DE CONVERSION (FCFA POUR 1 N COIN)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        OutlinedTextField(
+                            value = conversionRateInput,
+                            onValueChange = { conversionRateInput = it.filter { char -> char.isDigit() } },
+                            placeholder = { Text("Ex: 5") },
+                            suffix = { Text("FCFA = 1 N Coin", fontSize = 11.sp, color = Color(0xFF10B981)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("conversion_rate_input"),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF10B981),
+                                focusedLabelColor = Color(0xFF10B981)
+                            )
                         )
-                        Text("Ajustez le taux d'échange légal de 1 F CFA à 10 F CFA par N Coin selon la liquidité du marché.", fontSize = 10.sp, color = Color.Gray)
+                        Text("Saisissez le taux d'échange légal de 1 F CFA à 10 F CFA par N Coin selon la liquidité du marché.", fontSize = 10.sp, color = Color.Gray)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Validation Button
+                    val viewsRatioDraft = viewsRatioInput.toFloatOrNull() ?: viewsRatio
+                    val conversionRateDraft = conversionRateInput.toFloatOrNull() ?: conversionRate
                     val ratesModified = viewsRatioDraft != viewsRatio || conversionRateDraft != conversionRate
                     Button(
                         onClick = {
-                            viewModel.setViewsRatio(viewsRatioDraft)
-                            viewModel.setConversionRate(conversionRateDraft)
-                            Toast.makeText(
-                                context,
-                                "⚖️ Tarifs monétaires validés avec succès !\nNouveau taux : 1 N-Coin = ${conversionRateDraft.toInt()} FCFA\nRatio d'émission : ${viewsRatioDraft.toInt()} vues = 1 N-Coin",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            val parsedViewsRatio = viewsRatioInput.toFloatOrNull()
+                            val parsedConversionRate = conversionRateInput.toFloatOrNull()
+                            if (parsedViewsRatio != null && parsedConversionRate != null) {
+                                viewModel.setViewsRatio(parsedViewsRatio)
+                                viewModel.setConversionRate(parsedConversionRate)
+                                Toast.makeText(
+                                    context,
+                                    "⚖️ Tarifs monétaires validés avec succès !\nNouveau taux : 1 N-Coin = ${parsedConversionRate.toInt()} FCFA\nRatio d'émission : ${parsedViewsRatio.toInt()} vues = 1 N-Coin",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                Toast.makeText(context, "Veuillez entrer des valeurs numériques valides !", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         modifier = Modifier.fillMaxWidth().testTag("validate_rates_button"),
                         colors = ButtonDefaults.buttonColors(
@@ -1114,6 +1254,67 @@ fun AdminDashboardView(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Publier l'Affiche", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- Campagne de Notifications Push (Marketing & Comm) ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Campagne de Notifications Push 🪙", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                    }
+                    Text(
+                        text = "Diffusez instantanément des messages marketing, des offres spéciales ou des alertes d'administration aux membres de l'application via des notifications système (Push).",
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = pushNotificationMessage,
+                        onValueChange = { pushNotificationMessage = it },
+                        label = { Text("Message de la notification push", fontSize = 11.sp) },
+                        placeholder = { Text("Ex: Vente Flash ! Équipez-vous pour la rentrée scolaire sur Nora 🎒") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        ),
+                        maxLines = 3
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (pushNotificationMessage.isNotBlank()) {
+                                viewModel.postNotification(pushNotificationMessage)
+                                Toast.makeText(context, "Notification envoyée avec succès ! 🚀", Toast.LENGTH_SHORT).show()
+                                pushNotificationMessage = ""
+                            } else {
+                                Toast.makeText(context, "Veuillez saisir un message pour la notification !", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Diffuser la Notification Push 🚀", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

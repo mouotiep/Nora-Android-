@@ -71,7 +71,7 @@ data class Conversation(
 data class Transaction(
     val title: String,
     val description: String,
-    val amount: Int, // in N Coins (positive or negative)
+    val amount: Double, // in N Coins (positive or negative)
     val date: String,
     val isPositive: Boolean
 )
@@ -102,7 +102,9 @@ data class UserProfile(
     val selfiePhoto: String = "",
     val hasShop: Boolean = false,
     val email: String = "",
-    val onboardingCompleted: Boolean = false
+    val onboardingCompleted: Boolean = false,
+    val nCoinsBalance: Double = 1.0,
+    val referralCode: String = ""
 )
 
 data class NoraOrder(
@@ -115,7 +117,7 @@ data class NoraOrder(
     val sellerName: String,
     val sellerWhatsApp: String,
     val payInNCoins: Boolean,
-    val coinsCost: Int,
+    val coinsCost: Double,
     val status: String, // "En attente de livraison", "Livré & Payé"
     val date: String,
     val commissionCashed: Boolean = false

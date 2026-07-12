@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -18,6 +20,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,6 +68,7 @@ fun OnboardingScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -278,6 +283,7 @@ fun OnboardingScreen(
         var emailInput by remember { mutableStateOf("") }
         var passwordInput by remember { mutableStateOf("") }
         var whatsappInput by remember { mutableStateOf("") }
+        var referralCodeInput by remember { mutableStateOf("") }
         var showPassword by remember { mutableStateOf(false) }
 
         Column(
@@ -285,6 +291,7 @@ fun OnboardingScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -367,7 +374,7 @@ fun OnboardingScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Inputs Card
             Card(
@@ -443,6 +450,73 @@ fun OnboardingScreen(
                                 focusedLabelColor = Color(0xFF007A5E)
                             )
                         )
+
+                        OutlinedTextField(
+                            value = referralCodeInput,
+                            onValueChange = { referralCodeInput = it },
+                            label = { Text("Code ou Lien de Parrainage (Optionnel)") },
+                            placeholder = { Text("Ex: https://nora-cameroun.com/invite/code") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("auth_referral_input"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007A5E),
+                                focusedLabelColor = Color(0xFF007A5E)
+                            )
+                        )
+
+                        val inviterProfile = remember(referralCodeInput) {
+                            if (referralCodeInput.isNotBlank()) {
+                                viewModel.findUserByReferralCodeOrLink(referralCodeInput)
+                            } else {
+                                null
+                            }
+                        }
+
+                        if (inviterProfile != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFE6F4EA), RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF137333),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Parrain : ${inviterProfile.name} (Gagnera +0.25 N-Coins !)",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF137333),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else if (referralCodeInput.isNotBlank()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFFCE8E6), RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFC5221F),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Code ou lien inconnu ou invalide.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFC5221F)
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -469,7 +543,7 @@ fun OnboardingScreen(
                                     Toast.makeText(context, "Numéro WhatsApp obligatoire pour s'inscrire", Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
-                                val success = viewModel.registerUser(email, password, whatsapp)
+                                val success = viewModel.registerUser(email, password, whatsapp, referredByCode = referralCodeInput)
                                 if (success) {
                                     Toast.makeText(context, "Compte créé ! Veuillez configurer votre profil.", Toast.LENGTH_LONG).show()
                                 } else {

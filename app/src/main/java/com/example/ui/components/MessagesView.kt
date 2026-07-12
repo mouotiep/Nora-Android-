@@ -72,9 +72,16 @@ fun MessagesView(
                 }
             }
         } else {
-            // Non-admin users ONLY see the NorA official conversation, renamed to "NorA"
-            rawConversations.filter { it.id == "conv-3" }.map { conv ->
-                conv.copy(contactName = "NorA")
+            // Non-admin users see the NorA official conversation ("conv-3" -> "NorA")
+            // AND any conversation dedicated to them (where contactName matches their name)
+            rawConversations.filter { conv ->
+                conv.id == "conv-3" || conv.contactName.equals(userProfile.name, ignoreCase = true)
+            }.map { conv ->
+                if (conv.id == "conv-3") {
+                    conv.copy(contactName = "NorA Support")
+                } else {
+                    conv.copy(contactName = "NorA (Fil de Coordination)")
+                }
             }
         }
     }

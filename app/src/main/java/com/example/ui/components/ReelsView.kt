@@ -38,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.NoraViewModel
 import com.example.ReelVideo
 import com.example.ReelComment
+import com.example.toLocaleString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -1111,7 +1112,7 @@ fun ReelPageItem(
                     )
                 }
 
-                val coinGains = (reel.viewsCount / viewsRatio.toInt().coerceAtLeast(1) + 1).coerceIn(1, 100000)
+                val coinGains = (reel.viewsCount.toDouble() / viewsRatio.coerceAtLeast(1f)).coerceIn(0.0, 100000.0)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1127,7 +1128,7 @@ fun ReelPageItem(
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = "$coinGains N-Coins",
+                        text = "${coinGains.toLocaleString()} N-Coins",
                         color = Color(0xFFFFD700),
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp

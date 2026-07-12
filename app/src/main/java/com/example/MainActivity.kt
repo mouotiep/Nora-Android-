@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -42,6 +43,64 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+
+fun sendSystemNotification(context: Context, title: String, message: String) {
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+        }
+        
+        val channelId = "nora_notifications_channel"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Notifications Nora",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications relatives aux bonus, ventes et parrainages Nora"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            
+        notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,6 +117,14 @@ class MainActivity : ComponentActivity() {
 // Helper Extension for FCFA Money Formatting
 fun Int.toLocaleString(): String {
     return String.format(Locale.FRANCE, "%,d", this)
+}
+
+fun Double.toLocaleString(): String {
+    return if (this % 1.0 == 0.0) {
+        String.format(Locale.FRANCE, "%,d", this.toInt())
+    } else {
+        String.format(Locale.FRANCE, "%,.2f", this)
+    }
 }
 
 @Composable
@@ -137,8 +204,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
 
     LaunchedEffect(currentNotification) {
         if (currentNotification != null) {
-            delay(4000)
-            viewModel.clearNotification()
+            sendSystemNotification(context, "Nora Cameroun 🪙", currentNotification!!)
         }
     }
     
@@ -599,6 +665,10 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                 .zIndex(99f)
         ) {
             currentNotification?.let { text ->
+                var isReplying by remember { mutableStateOf(false) }
+                var quickReplyText by remember { mutableStateOf("") }
+                val lastIncomingConvId by viewModel.lastIncomingMessageConvId.collectAsState()
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -606,51 +676,140 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF10B981)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.NotificationsActive,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF10B981)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Nora Cameroun 🪙",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF34D399)
+                                )
+                                Text(
+                                    text = text,
+                                    fontSize = 13.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.clearNotification() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Fermer",
+                                    tint = Color.LightGray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Nora Cameroun",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = Color(0xFF34D399)
-                            )
-                            Text(
-                                text = text,
-                                fontSize = 13.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium,
-                                lineHeight = 16.sp
-                            )
-                        }
-                        IconButton(
-                            onClick = { viewModel.clearNotification() },
-                            modifier = Modifier.size(24.dp)
+
+                        // Actions Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Fermer",
-                                tint = Color.LightGray,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            // Voir la discussion button
+                            TextButton(
+                                onClick = {
+                                    viewModel.setCurrentTabIndex(2) // Tab 2: Messages
+                                    viewModel.setActiveChatId(lastIncomingConvId)
+                                    viewModel.clearNotification()
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF60A5FA))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Voir / Ouvrir", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(
+                                onClick = { isReplying = !isReplying },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF34D399))
+                            ) {
+                                Icon(
+                                    imageVector = if (isReplying) Icons.Default.KeyboardArrowUp else Icons.Default.Reply,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (isReplying) "Masquer" else "Répondre", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Quick Reply Field
+                        if (isReplying) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF334155), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                BasicTextField(
+                                    value = quickReplyText,
+                                    onValueChange = { quickReplyText = it },
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.sp),
+                                    modifier = Modifier.weight(1f),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                                    decorationBox = { innerTextField ->
+                                        if (quickReplyText.isEmpty()) {
+                                            Text("Saisir une réponse rapide...", color = Color.Gray, fontSize = 13.sp)
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        if (quickReplyText.trim().isNotEmpty()) {
+                                            viewModel.sendMessage(lastIncomingConvId, quickReplyText.trim())
+                                            Toast.makeText(context, "Réponse envoyée avec succès !", Toast.LENGTH_SHORT).show()
+                                            quickReplyText = ""
+                                            isReplying = false
+                                            viewModel.clearNotification()
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Send,
+                                        contentDescription = "Envoyer",
+                                        tint = Color(0xFF34D399),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

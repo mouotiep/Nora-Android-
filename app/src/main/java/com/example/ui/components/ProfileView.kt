@@ -50,6 +50,7 @@ fun ProfileView(
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showEditShopDialog by remember { mutableStateOf(false) }
+    var showShopManagerDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf<String?>(null) }
     var showPublishReelDialog by remember { mutableStateOf(false) }
     var showChangePhotoDialog by remember { mutableStateOf(false) }
@@ -183,12 +184,14 @@ fun ProfileView(
 
                     if (userProfile.kycStatus == "Certifié") {
                         Button(
-                            onClick = { showEditShopDialog = true },
-                            modifier = Modifier.weight(1f).testTag("edit_shop_button"),
+                            onClick = { showShopManagerDialog = true },
+                            modifier = Modifier.weight(1f).testTag("manage_shop_button"),
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFECFDF5), contentColor = Color(0xFF047857))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981), contentColor = Color.White)
                         ) {
-                            Text("Modifier Boutique", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Gérer Boutique", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -319,7 +322,8 @@ fun ProfileView(
         }
 
         // --- Invitation & Parrainage (Referral Program) ---
-        val referralLink = "https://nora-cameroun.com/invite/${userProfile.name.lowercase().replace(" ", "_")}"
+        val referralCode = if (userProfile.referralCode.isNotBlank()) userProfile.referralCode else (userProfile.name.lowercase().replace(" ", "_") + "-ref")
+        val referralLink = "https://nora-cameroun.com/invite/$referralCode"
         val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
         Card(
@@ -347,7 +351,7 @@ fun ProfileView(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Gagnez +25 N Coins pour chaque nouvel utilisateur qui s'inscrit via votre lien unique de parrainage !",
+                    text = "Gagnez +0.25 N Coin pour chaque nouvel utilisateur qui s'inscrit via votre lien unique de parrainage !",
                     fontSize = 11.sp,
                     color = Color(0xFF15803D)
                 )
@@ -372,46 +376,20 @@ fun ProfileView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
+                // Copy button
+                OutlinedButton(
+                    onClick = {
+                        clipboardManager.setText(androidx.compose.ui.text.buildAnnotatedString { append(referralLink) })
+                        Toast.makeText(context, "Lien de parrainage copié !", Toast.LENGTH_SHORT).show()
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    border = BorderStroke(1.dp, Color(0xFF16A34A)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A)),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    // Copy button
-                    OutlinedButton(
-                        onClick = {
-                            clipboardManager.setText(androidx.compose.ui.text.buildAnnotatedString { append(referralLink) })
-                            Toast.makeText(context, "Lien de parrainage copié !", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f),
-                        border = BorderStroke(1.dp, Color(0xFF16A34A)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Copier", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // Simulation button
-                    Button(
-                        onClick = {
-                            val cameroonNames = listOf(
-                                "Amadou", "Mireille", "Sali", "Ferdinand", "Sonia", 
-                                "Samuel", "Florence", "Merveille", "Aboubakar", "Evelyne", 
-                                "Emile", "Chantal", "Yannick", "Carine", "Marc"
-                            )
-                            val referee = cameroonNames.random()
-                            viewModel.simulateReferralSignUp(referee)
-                            Toast.makeText(context, "🎉 Félicitations ! $referee s'est inscrit via votre lien. +25 N Coins crédités !", Toast.LENGTH_LONG).show()
-                        },
-                        modifier = Modifier.weight(1.2f).testTag("simulate_referral_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Simuler", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Copier", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -679,6 +657,14 @@ fun ProfileView(
                 }
             }
         }
+    }
+
+    // Shop Manager & Dashboard Dialog
+    if (showShopManagerDialog) {
+        ShopManagerDialog(
+            onDismiss = { showShopManagerDialog = false },
+            viewModel = viewModel
+        )
     }
 
     // QR Code Representation Display Dialog
