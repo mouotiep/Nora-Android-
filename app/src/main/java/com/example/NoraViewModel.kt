@@ -18,7 +18,11 @@ import java.util.UUID
 class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sharedPrefs = application.getSharedPreferences("nora_prefs", Context.MODE_PRIVATE)
-    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val moshi: Moshi = try {
+        Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    } catch (t: Throwable) {
+        Moshi.Builder().build()
+    }
 
 
 
@@ -1521,7 +1525,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 if (loadedAccounts != null) {
                     _registeredAccounts.value = loadedAccounts
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -1543,7 +1547,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     val newExpiry = now + (365L * 24 * 60 * 60 * 1000)
                     sharedPrefs.edit().putLong("session_expiry", newExpiry).apply()
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -1606,7 +1610,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 .putString("registered_accounts_json", registeredAccountsJson)
                 .putLong("session_expiry", expiryTime)
                 .apply()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
