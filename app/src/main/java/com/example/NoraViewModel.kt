@@ -1515,15 +1515,93 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _conversionRate.value = rate
     }
 
+    private fun userProfileToJson(profile: UserProfile): String {
+        return try {
+            org.json.JSONObject().apply {
+                put("id", profile.id)
+                put("name", profile.name)
+                put("whatsappNumber", profile.whatsappNumber)
+                put("profilePic", profile.profilePic)
+                put("isLoggedIn", profile.isLoggedIn)
+                put("interests", org.json.JSONArray(profile.interests))
+                put("kycStatus", profile.kycStatus)
+                put("shopName", profile.shopName)
+                put("shopDescription", profile.shopDescription)
+                put("shopCategory", profile.shopCategory)
+                put("shopLocation", profile.shopLocation)
+                put("shopPic", profile.shopPic)
+                put("agreedToFee", profile.agreedToFee)
+                put("idCardPhoto", profile.idCardPhoto)
+                put("selfiePhoto", profile.selfiePhoto)
+                put("hasShop", profile.hasShop)
+                put("email", profile.email)
+                put("onboardingCompleted", profile.onboardingCompleted)
+                put("nCoinsBalance", profile.nCoinsBalance)
+                put("referralCode", profile.referralCode)
+            }.toString()
+        } catch (t: Throwable) {
+            ""
+        }
+    }
+
+    private fun jsonToUserProfile(jsonStr: String): UserProfile? {
+        return try {
+            val obj = org.json.JSONObject(jsonStr)
+            val interestsList = mutableListOf<String>()
+            val arr = obj.optJSONArray("interests")
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    interestsList.add(arr.getString(i))
+                }
+            }
+            UserProfile(
+                id = obj.optString("id", "user-1"),
+                name = obj.optString("name", "Visiteur Camerounais"),
+                whatsappNumber = obj.optString("whatsappNumber", "+237 600 000 000"),
+                profilePic = obj.optString("profilePic", ""),
+                isLoggedIn = obj.optBoolean("isLoggedIn", false),
+                interests = interestsList,
+                kycStatus = obj.optString("kycStatus", "Aucun"),
+                shopName = obj.optString("shopName", ""),
+                shopDescription = obj.optString("shopDescription", ""),
+                shopCategory = obj.optString("shopCategory", ""),
+                shopLocation = obj.optString("shopLocation", ""),
+                shopPic = obj.optString("shopPic", ""),
+                agreedToFee = obj.optBoolean("agreedToFee", false),
+                idCardPhoto = obj.optString("idCardPhoto", ""),
+                selfiePhoto = obj.optString("selfiePhoto", ""),
+                hasShop = obj.optBoolean("hasShop", false),
+                email = obj.optString("email", ""),
+                onboardingCompleted = obj.optBoolean("onboardingCompleted", false),
+                nCoinsBalance = obj.optDouble("nCoinsBalance", 1.0),
+                referralCode = obj.optString("referralCode", "")
+            )
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
     init {
         // 1. Load registered accounts from SharedPreferences (fallback to default value)
         val registeredAccountsJson = sharedPrefs.getString("registered_accounts_json", null)
         if (!registeredAccountsJson.isNullOrBlank()) {
             try {
-                val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Account::class.java)
-                val loadedAccounts = moshi.adapter<Map<String, Account>>(mapType).fromJson(registeredAccountsJson)
-                if (loadedAccounts != null) {
-                    _registeredAccounts.value = loadedAccounts
+                val accountsObj = org.json.JSONObject(registeredAccountsJson)
+                val loadedMap = mutableMapOf<String, Account>()
+                val keys = accountsObj.keys()
+                while (keys.hasNext()) {
+                    val email = keys.next()
+                    val accObj = accountsObj.getJSONObject(email)
+                    val accEmail = accObj.optString("email", email)
+                    val pass = accObj.optString("password", "")
+                    val profObj = accObj.optJSONObject("profile")
+                    val prof = if (profObj != null) jsonToUserProfile(profObj.toString()) else null
+                    if (prof != null) {
+                        loadedMap[email] = Account(accEmail, pass, prof)
+                    }
+                }
+                if (loadedMap.isNotEmpty()) {
+                    _registeredAccounts.value = loadedMap
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
@@ -1537,7 +1615,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         
         if (!userProfileJson.isNullOrBlank() && now < expiryTime) {
             try {
-                val loadedProfile = moshi.adapter(UserProfile::class.java).fromJson(userProfileJson)
+                val loadedProfile = jsonToUserProfile(userProfileJson)
                 if (loadedProfile != null && loadedProfile.isLoggedIn) {
                     _userProfile.value = loadedProfile
                     _walletNCoins.value = loadedProfile.nCoinsBalance
@@ -1594,9 +1672,17 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveSession(profile: UserProfile, accounts: Map<String, Account>) {
         try {
-            val userProfileJson = moshi.adapter(UserProfile::class.java).toJson(profile)
-            val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Account::class.java)
-            val registeredAccountsJson = moshi.adapter<Map<String, Account>>(mapType).toJson(accounts)
+            val userProfileJson = userProfileToJson(profile)
+            val accountsObj = org.json.JSONObject()
+            accounts.forEach { (email, account) ->
+                val accObj = org.json.JSONObject().apply {
+                    put("email", account.email)
+                    put("password", account.password)
+                    put("profile", org.json.JSONObject(userProfileToJson(account.profile)))
+                }
+                accountsObj.put(email, accObj)
+            }
+            val registeredAccountsJson = accountsObj.toString()
             
             val expiryTime = if (profile.isLoggedIn) {
                 val currentExpiry = sharedPrefs.getLong("session_expiry", 0L)
