@@ -25,7 +25,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare environment & keystore
+      - name: Prepare environment
         run: |
           if [ ! -f .env ]; then
             if [ -f .env.example ]; then
@@ -33,12 +33,6 @@ jobs:
             else
               touch .env
             fi
-          fi
-          if [ -f debug.keystore.base64 ] && [ ! -f debug.keystore ]; then
-            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
-          fi
-          if [ ! -f debug.keystore ] || [ ! -s debug.keystore ]; then
-            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
           fi
 
       - name: Build Debug APK
