@@ -66,16 +66,31 @@ fun ReelsView(
     // Publish Reel Dialog State
     var showPublishReelDialog by remember { mutableStateOf(false) }
 
-    // Unique user views check on active page
-    LaunchedEffect(pagerState.currentPage) {
+    // Unique user views check on active page with required duration:
+    // - Video: 25 seconds minimum
+    // - Photo: 5 seconds minimum
+    var watchSeconds by remember(pagerState.currentPage) { mutableIntStateOf(0) }
+    var isViewCountedForCurrentPage by remember(pagerState.currentPage) { mutableStateOf(false) }
+
+    val activeReel = reels.getOrNull(pagerState.currentPage)
+    val isPhotoActive = activeReel?.mediaType?.contains("Photo", ignoreCase = true) == true
+    val requiredWatchTimeSeconds = if (isPhotoActive) 5 else 25
+
+    LaunchedEffect(pagerState.currentPage, reels) {
+        watchSeconds = 0
+        isViewCountedForCurrentPage = false
         if (reels.isNotEmpty() && pagerState.currentPage < reels.size) {
-            val activeReel = reels[pagerState.currentPage]
-            val isNewView = viewModel.recordUniqueView(activeReel.id)
-            if (isNewView) {
-                Toast.makeText(context, "👁️ Nouvelle vue unique enregistrée pour ${activeReel.creatorName} !", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "👁️ Vous avez déjà vu ce Reel. (Vue unique conservée)", Toast.LENGTH_SHORT).show()
+            val currentReel = reels[pagerState.currentPage]
+            val isPhoto = currentReel.mediaType.contains("Photo", ignoreCase = true)
+            val targetTime = if (isPhoto) 5 else 25
+
+            while (watchSeconds < targetTime) {
+                delay(1000L)
+                watchSeconds++
             }
+
+            val isNewView = viewModel.recordUniqueView(currentReel.id)
+            isViewCountedForCurrentPage = true
         }
     }
 
@@ -105,10 +120,16 @@ fun ReelsView(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val reel = reels[page]
+                val isCurrent = (page == pagerState.currentPage)
+                val targetWatchTime = if (reel.mediaType.contains("Photo", ignoreCase = true)) 5 else 25
+
                 ReelPageItem(
                     reel = reel,
                     viewsRatio = viewsRatio,
                     isMyReel = reel.creatorName == userProfile.name,
+                    watchSeconds = if (isCurrent) watchSeconds else 0,
+                    requiredWatchSeconds = targetWatchTime,
+                    isViewCounted = if (isCurrent) isViewCountedForCurrentPage else false,
                     onLike = { viewModel.toggleLike(reel.id) },
                     onFollow = { viewModel.toggleFollow(reel.id) },
                     onCommentsClick = { showCommentsReelId = reel.id },
@@ -487,8 +508,8 @@ fun ReelsView(
         var cropAspectRatio by remember { mutableStateOf("9:16") }
         var cropZoomLevel by remember { mutableStateOf(1.0f) }
         var cropRotationAngle by remember { mutableStateOf(0f) }
-        var videoStartSec by remember { mutableStateOf(0.0f) }
-        var videoEndSec by remember { mutableStateOf(15.0f) }
+        var videoStartSec by remember { mutableFloatStateOf(0.0f) }
+        var videoEndSec by remember { mutableFloatStateOf(35.0f) }
 
         Dialog(onDismissRequest = { showPublishReelDialog = false }) {
             Surface(
@@ -799,6 +820,17 @@ fun ReelsView(
                                     Toast.makeText(context, "Veuillez sélectionner et importer un fichier depuis votre téléphone", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
+                                if (isVideoSelected) {
+                                    val videoDuration = videoEndSec - videoStartSec
+                                    if (videoDuration < 30.0f) {
+                                        Toast.makeText(
+                                            context,
+                                            "⚠️ Une vidéo postée ne peut pas durer moins de 30 secondes ! (Durée sélectionnée: ${String.format("%.1f", videoDuration)}s)",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@Button
+                                    }
+                                }
                                 viewModel.publishReel(
                                     caption = captionInput,
                                     category = categoryInput,
@@ -827,6 +859,9 @@ fun ReelPageItem(
     reel: ReelVideo,
     viewsRatio: Float,
     isMyReel: Boolean,
+    watchSeconds: Int = 0,
+    requiredWatchSeconds: Int = 25,
+    isViewCounted: Boolean = false,
     onLike: () -> Unit,
     onFollow: () -> Unit,
     onCommentsClick: () -> Unit,
@@ -1090,10 +1125,10 @@ fun ReelPageItem(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Views tag indicator
+            // Views tag indicator & live watching timer badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1102,13 +1137,14 @@ fun ReelPageItem(
                     Icon(
                         imageVector = Icons.Default.RemoveRedEye,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.6f),
+                        tint = Color.White.copy(alpha = 0.8f),
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
                         text = "${reel.viewsCount} vues",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 11.sp
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 

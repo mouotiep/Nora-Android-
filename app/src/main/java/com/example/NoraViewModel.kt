@@ -207,7 +207,36 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Simulated list of pending Shop KYC applications for Admin dashboard
-    private val _kycApplications = MutableStateFlow<List<UserProfile>>(emptyList())
+    private val _kycApplications = MutableStateFlow<List<UserProfile>>(
+        listOf(
+            UserProfile(
+                id = "user-kyc-1",
+                name = "Samuel Eto'o Artisanat",
+                whatsappNumber = "+237 699 887 766",
+                email = "samuel.art@nora.cm",
+                kycStatus = "En Attente",
+                shopName = "L'Artisanal Douala",
+                shopDescription = "Sculptures en bois d'ébène, masques traditionnels et objets d'art du Littoral.",
+                shopCategory = "Objets d'Art",
+                shopLocation = "Douala (Akwa), Cameroun",
+                idCardPhoto = "cni_recto_verso_samuel.jpg",
+                selfiePhoto = "selfie_cni_samuel.jpg"
+            ),
+            UserProfile(
+                id = "user-kyc-2",
+                name = "Awa Kente Design",
+                whatsappNumber = "+237 677 112 233",
+                email = "awa.kente@nora.cm",
+                kycStatus = "En Attente",
+                shopName = "Awa Couture & Toghu",
+                shopDescription = "Vêtements traditionnels Toghu brodés à la main et tissus Kente de haute qualité.",
+                shopCategory = "Mode & Vêtements",
+                shopLocation = "Bamenda / Yaoundé, Cameroun",
+                idCardPhoto = "cni_cameroun_awa.png",
+                selfiePhoto = "selfie_verification_awa.png"
+            )
+        )
+    )
     val kycApplications: StateFlow<List<UserProfile>> = _kycApplications.asStateFlow()
 
     // Admin Custom Advertisement banner poster (Marketplace Header Background)
@@ -435,7 +464,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 UserProfile(
                     id = "admin-mouotiep",
                     name = "Admin Mouotie",
-                    whatsappNumber = "+237 675 001 001",
+                    whatsappNumber = "+237 655 924 778",
                     isLoggedIn = false,
                     onboardingCompleted = true,
                     email = "mouotiep@gmail.com",
@@ -446,6 +475,40 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     )
     val registeredAccounts: StateFlow<Map<String, Account>> = _registeredAccounts.asStateFlow()
 
+    companion object {
+        const val ADMIN_WHATSAPP_DISPLAY = "+237 655 924 778"
+        const val ADMIN_WHATSAPP_CLEAN = "237655924778"
+
+        /**
+         * Validates and formats a Cameroonian phone number.
+         * Syntax requirement: Starts with +237 (or 237/local 9 digits) followed by 9 digits.
+         * Example: +237655924778 or +237 655 924 778 or 655924778 -> "+237 655 924 778"
+         */
+        fun validateAndFormatCameroonPhone(input: String): String? {
+            val raw = input.trim().replace(" ", "").replace("-", "")
+            if (raw.isBlank()) return null
+
+            val digitsOnly = raw.removePrefix("+")
+
+            val numPart = when {
+                // Full international format with 237 prefix: e.g. 237655924778 (12 digits)
+                digitsOnly.startsWith("237") && digitsOnly.length == 12 -> {
+                    digitsOnly.substring(3)
+                }
+                // Local 9 digits starting with 2, 3, 6, 8: e.g. 655924778
+                digitsOnly.length == 9 -> {
+                    digitsOnly
+                }
+                else -> null
+            }
+
+            if (numPart != null && numPart.matches(Regex("^[2368][0-9]{8}$"))) {
+                return "+237 ${numPart.substring(0, 3)} ${numPart.substring(3, 6)} ${numPart.substring(6)}"
+            }
+            return null
+        }
+    }
+
     fun loginUser(email: String, password: String): Boolean {
         val trimmedEmail = email.trim()
         if (trimmedEmail == "mouotiep@gmail.com" && password == "Mouotie1@,*") {
@@ -453,7 +516,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(
                     id = "admin-mouotiep",
                     name = "Admin Mouotie",
-                    whatsappNumber = "+237 675 001 001",
+                    whatsappNumber = "+237 655 924 778",
                     isLoggedIn = true,
                     onboardingCompleted = true,
                     email = "mouotiep@gmail.com",
@@ -508,8 +571,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     fun registerUser(email: String, password: String, whatsappNumber: String, referredByCode: String? = null): Boolean {
         val trimmedEmail = email.trim()
-        val trimmedWhatsapp = whatsappNumber.trim()
-        if (trimmedEmail.isBlank() || password.isBlank() || trimmedWhatsapp.isBlank()) return false
+        val formattedWhatsapp = validateAndFormatCameroonPhone(whatsappNumber) ?: return false
+        if (trimmedEmail.isBlank() || password.isBlank()) return false
         if (_registeredAccounts.value.containsKey(trimmedEmail)) return false
         
         val uniqueCode = UUID.randomUUID().toString().take(6)
@@ -518,7 +581,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         val newProfile = UserProfile(
             id = "user-${UUID.randomUUID()}",
             name = "Nouveau Membre",
-            whatsappNumber = trimmedWhatsapp,
+            whatsappNumber = formattedWhatsapp,
             email = trimmedEmail,
             isLoggedIn = true,
             onboardingCompleted = false,
@@ -595,10 +658,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     // Onboarding interest selection
     fun selectInterestsAndLogin(name: String, whatsapp: String, selectedInterests: List<String>) {
+        val formattedWhatsapp = validateAndFormatCameroonPhone(whatsapp) ?: ADMIN_WHATSAPP_DISPLAY
         _userProfile.update {
             it.copy(
                 name = name.ifBlank { "Utilisateur Camerounais" },
-                whatsappNumber = whatsapp.ifBlank { "+237 600 000 000" },
+                whatsappNumber = formattedWhatsapp,
                 interests = selectedInterests,
                 isLoggedIn = true,
                 onboardingCompleted = true,
@@ -635,8 +699,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         shopCategory: String,
         location: String,
         idCardName: String,
-        selfieName: String,
-        agreed: Boolean
+        selfieName: String
     ) {
         _userProfile.update {
             it.copy(
@@ -645,7 +708,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 shopDescription = shopDesc,
                 shopCategory = shopCategory,
                 shopLocation = location,
-                agreedToFee = agreed,
                 idCardPhoto = idCardName,
                 selfiePhoto = selfieName
             )
@@ -1144,7 +1206,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             buyerName = activeUser.name,
             buyerWhatsApp = activeUser.whatsappNumber,
             sellerName = product.shopName,
-            sellerWhatsApp = "+237 675 001 002", // Simulating seller's WhatsApp
+            sellerWhatsApp = "+237 655 924 778", // Admin/Seller WhatsApp
             payInNCoins = payInNCoins,
             coinsCost = costInCoins,
             status = "En attente de livraison",
@@ -1352,10 +1414,15 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     // Update profile
     fun updateProfile(name: String, whatsapp: String, profilePic: String) {
+        val formattedWhatsapp = if (whatsapp.isNotBlank()) {
+            validateAndFormatCameroonPhone(whatsapp) ?: _userProfile.value.whatsappNumber
+        } else {
+            _userProfile.value.whatsappNumber
+        }
         _userProfile.update {
             it.copy(
                 name = name.ifBlank { it.name },
-                whatsappNumber = whatsapp.ifBlank { it.whatsappNumber },
+                whatsappNumber = formattedWhatsapp,
                 profilePic = when (profilePic) {
                     "clear" -> ""
                     else -> profilePic.ifBlank { it.profilePic }

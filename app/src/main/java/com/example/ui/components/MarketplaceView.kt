@@ -1098,7 +1098,6 @@ fun MarketplaceView(
         var shopCategoryInput by remember { mutableStateOf("Objets d'Art") }
         var idCardName by remember { mutableStateOf("") }
         var selfieName by remember { mutableStateOf("") }
-        var agreedToFee by remember { mutableStateOf(false) }
 
         Dialog(onDismissRequest = { showKycDialog = false }) {
             Surface(
@@ -1112,8 +1111,45 @@ fun MarketplaceView(
                 Column(modifier = Modifier.padding(20.dp)) {
                     if (currentKycStep == 1) {
                         Text("Ouvrir une Boutique", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
-                        Text("Saisissez les informations de votre boutique et importez vos documents d'identité.", fontSize = 11.sp, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Saisissez les informations de votre boutique et importez vos documents d'identité pour vérification.", fontSize = 11.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Admin WhatsApp Direct Contact Card
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
+                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Besoin d'aide ou question KYC ?", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                                    Text("Contactez l'Admin Nora sur WhatsApp (+237 655 924 778)", fontSize = 10.sp, color = Color(0xFF15803D))
+                                }
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=237655924778&text=Bonjour%20Admin%20Nora,%20je%20souhaite%20des%20informations%20sur%20la%20validation%20de%20ma%20boutique%20KYC."))
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "WhatsApp Admin: +237 655 924 778", Toast.LENGTH_LONG).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(32.dp),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("WhatsApp", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
 
                         OutlinedTextField(
                             value = shopNameInput,
@@ -1258,8 +1294,7 @@ fun MarketplaceView(
                                         shopCategory = shopCategoryInput,
                                         location = shopLocInput,
                                         idCardName = idCardName,
-                                        selfieName = selfieName,
-                                        agreed = true
+                                        selfieName = selfieName
                                     )
                                     Toast.makeText(context, "Votre dossier de création de boutique a été soumis avec succès !", Toast.LENGTH_LONG).show()
                                     showKycDialog = false

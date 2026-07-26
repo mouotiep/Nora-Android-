@@ -139,19 +139,18 @@ fun NoraSplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
+            Surface(
                 modifier = Modifier
-                    .size(160.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color(0xFF007A5E)),
-                contentAlignment = Alignment.Center
+                    .size(130.dp),
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                shadowElevation = 8.dp
             ) {
-                AsyncImage(
-                    model = R.drawable.img_app_icon_1783163003118,
+                Image(
+                    painter = painterResource(id = R.drawable.nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    error = painterResource(id = android.R.drawable.ic_menu_gallery)
+                    contentScale = ContentScale.Crop
                 )
             }
 
@@ -203,7 +202,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
     var showNotificationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentNotification) {
-        if (currentNotification != null) {
+        if (currentNotification != null && currentTabIndex != 0) {
             sendSystemNotification(context, "Nora Cameroun 🪙", currentNotification!!)
         }
     }
@@ -266,23 +265,22 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Left: White rounded logo box & dynamic app texts
+                                // Left: Square logo box centered on N emblem & dynamic app texts
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color.White),
-                                        contentAlignment = Alignment.Center
+                                    Surface(
+                                        modifier = Modifier.size(42.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color.White,
+                                        shadowElevation = 3.dp
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ShoppingBag,
-                                            contentDescription = "Logo",
-                                            tint = Color(0xFF007A5E),
-                                            modifier = Modifier.size(24.dp)
+                                        Image(
+                                            painter = painterResource(id = R.drawable.nora_logo),
+                                            contentDescription = "Logo Nora Cameroun",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
                                         )
                                     }
                                     Column {
@@ -303,7 +301,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                         Text(
                                             text = "Achetez • Vendez • Gagnez",
                                             fontSize = 8.sp,
-                                            color = Color(0xFFA7F3D0), // Soft emerald tint
+                                            color = Color(0xFFA7F3D0),
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
@@ -653,9 +651,9 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
             }
         }
 
-        // Custom Notification Heads-Up Alert Overlay
+        // Custom Notification Heads-Up Alert Overlay (hidden when watching videos on tab 0)
         AnimatedVisibility(
-            visible = currentNotification != null,
+            visible = currentNotification != null && currentTabIndex != 0,
             enter = slideInVertically(initialOffsetY = { -it }),
             exit = slideOutVertically(targetOffsetY = { -it }),
             modifier = Modifier

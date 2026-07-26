@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -535,6 +537,78 @@ fun ProfileView(
                 }
             }
         }
+
+        // --- Direct Admin WhatsApp Contact Card ---
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("profile_admin_whatsapp_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
+            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF16A34A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = "WhatsApp Admin",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Assistance & Support Admin Nora 💬",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF14532D)
+                        )
+                        Text(
+                            text = "WhatsApp officiel : +237 655 924 778",
+                            fontSize = 11.sp,
+                            color = Color(0xFF166534),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Posez vos questions sur la validation de boutique KYC, la livraison des commandes ou le programme N-Coins directement à l'administration.",
+                    fontSize = 11.sp,
+                    color = Color(0xFF15803D)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=237655924778&text=Bonjour%20Admin%20Nora,%20je%20vous%20contacte%20depuis%20l'application%20Nora."))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Numéro WhatsApp de l'Administration : +237 655 924 778", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().testTag("contact_admin_whatsapp_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Écrire directement sur WhatsApp (+237 655 924 778)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
     }
 
     // Edit Profile details dialog
@@ -564,7 +638,9 @@ fun ProfileView(
                     OutlinedTextField(
                         value = tempWhatsapp,
                         onValueChange = { tempWhatsapp = it },
-                        label = { Text("Numéro WhatsApp (Obligatoire)") },
+                        label = { Text("Numéro WhatsApp (+237 obligatoire)") },
+                        placeholder = { Text("Ex: +237655924778") },
+                        supportingText = { Text("Format: +237 suivi de 9 chiffres (Ex: +237655924778)", fontSize = 10.sp, color = Color.Gray) },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -575,11 +651,16 @@ fun ProfileView(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
-                                if (tempName.isBlank() || tempWhatsapp.isBlank()) {
-                                    Toast.makeText(context, "Saisie incomplète", Toast.LENGTH_SHORT).show()
+                                if (tempName.isBlank()) {
+                                    Toast.makeText(context, "Veuillez saisir votre nom", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
-                                viewModel.updateProfile(tempName, tempWhatsapp, "")
+                                val validWhatsapp = NoraViewModel.validateAndFormatCameroonPhone(tempWhatsapp)
+                                if (validWhatsapp == null) {
+                                    Toast.makeText(context, "Numéro WhatsApp invalide ! Syntaxe obligatoire : +237 suivi de 9 chiffres (Ex: +237655924778)", Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
+                                viewModel.updateProfile(tempName, validWhatsapp, "")
                                 Toast.makeText(context, "Profil mis à jour !", Toast.LENGTH_SHORT).show()
                                 showEditProfileDialog = false
                             },
@@ -737,6 +818,8 @@ fun ProfileView(
     // Publish Reel Dialog (For any general user!)
     if (showPublishReelDialog) {
         var reelCaption by remember { mutableStateOf("") }
+        var selectedMediaType by remember { mutableStateOf("Vidéo") } // "Vidéo" or "Photo"
+        var videoDurationSec by remember { mutableFloatStateOf(35.0f) }
         val categoriesList by viewModel.categories.collectAsState()
         val selectableCategories = remember(categoriesList) {
             categoriesList.filter { it != "Tous" }
@@ -754,14 +837,59 @@ fun ProfileView(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Publier une Vidéo (Reel)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Publier une Vidéo ou Photo (Reel)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Text("Faites rayonner les couleurs locales du Cameroun en publiant un nouveau Reel.", fontSize = 11.sp, color = Color.Gray)
+
+                    // Media Type Selection
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { selectedMediaType = "Vidéo" },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedMediaType == "Vidéo") Color(0xFF10B981) else Color(0xFFF1F5F9),
+                                contentColor = if (selectedMediaType == "Vidéo") Color.White else Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🎥 Vidéo (≥ 30s)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { selectedMediaType = "Photo" },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedMediaType == "Photo") Color(0xFF10B981) else Color(0xFFF1F5F9),
+                                contentColor = if (selectedMediaType == "Photo") Color.White else Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📷 Photo (≥ 5s vue)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (selectedMediaType == "Vidéo") {
+                        Column {
+                            Text("Durée de la vidéo : ${videoDurationSec.toInt()} secondes", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Slider(
+                                value = videoDurationSec,
+                                onValueChange = { videoDurationSec = it },
+                                valueRange = 30.0f..180.0f,
+                                colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981))
+                            )
+                            Text("⚠️ Règle Nora : Une vidéo postée doit durer au moins 30 secondes.", fontSize = 9.sp, color = Color.Gray)
+                        }
+                    } else {
+                        Text("ℹ️ Une photo nécessite au moins 5s de visionnage pour être comptée comme une vue.", fontSize = 10.sp, color = Color.Gray)
+                    }
 
                     OutlinedTextField(
                         value = reelCaption,
                         onValueChange = { reelCaption = it },
-                        label = { Text("Légende / Description de la vidéo") },
-                        modifier = Modifier.fillMaxWidth().height(90.dp),
+                        label = { Text("Légende / Description") },
+                        modifier = Modifier.fillMaxWidth().height(80.dp),
                         maxLines = 3,
                         placeholder = { Text("Ex: Magnifique kaba ndondo traditionnel fait main...") }
                     )
@@ -808,12 +936,16 @@ fun ProfileView(
                                     Toast.makeText(context, "Saisissez une légende pour votre publication", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
+                                if (selectedMediaType == "Vidéo" && videoDurationSec < 30.0f) {
+                                    Toast.makeText(context, "⚠️ Une vidéo postée ne peut pas durer moins de 30 secondes !", Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
                                 viewModel.publishReel(
                                     caption = reelCaption,
                                     category = selectedCategory,
-                                    mediaType = "Vidéo"
+                                    mediaType = selectedMediaType
                                 )
-                                Toast.makeText(context, "Vidéo culturelle publiée avec succès !", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Publication culturelle effectuée avec succès !", Toast.LENGTH_LONG).show()
                                 showPublishReelDialog = false
                                 reelCaption = ""
                             },

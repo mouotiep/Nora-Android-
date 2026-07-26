@@ -1,6 +1,8 @@
 package com.example.ui.components
 
 import android.widget.Toast
+import com.example.R
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -225,8 +229,9 @@ fun OnboardingScreen(
                     OutlinedTextField(
                         value = whatsapp,
                         onValueChange = { whatsapp = it },
-                        label = { Text("Numéro WhatsApp (Obligatoire)") },
-                        placeholder = { Text("Ex: +237 677 88 99 00") },
+                        label = { Text("Numéro WhatsApp (+237 obligatoire)") },
+                        placeholder = { Text("Ex: +237655924778") },
+                        supportingText = { Text("Syntaxe requise: +237 suivi de 9 chiffres (Ex: +237655924778)", fontSize = 10.sp, color = Color.Gray) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth().testTag("onboarding_whatsapp_input"),
                         shape = RoundedCornerShape(10.dp),
@@ -245,8 +250,9 @@ fun OnboardingScreen(
                                 Toast.makeText(context, "Veuillez entrer votre nom", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            if (whatsapp.isBlank()) {
-                                Toast.makeText(context, "Numéro WhatsApp requis pour les transactions", Toast.LENGTH_SHORT).show()
+                            val validWhatsapp = NoraViewModel.validateAndFormatCameroonPhone(whatsapp)
+                            if (validWhatsapp == null) {
+                                Toast.makeText(context, "Numéro WhatsApp invalide ! Syntaxe obligatoire : +237 suivi de 9 chiffres (Ex: +237655924778)", Toast.LENGTH_LONG).show()
                                 return@Button
                             }
                             if (selectedInterests.isEmpty()) {
@@ -256,7 +262,7 @@ fun OnboardingScreen(
                             
                             viewModel.selectInterestsAndLogin(
                                 name = name,
-                                whatsapp = whatsapp,
+                                whatsapp = validWhatsapp,
                                 selectedInterests = selectedInterests.toList()
                             )
                             Toast.makeText(context, "Bienvenue sur Nora Cameroun !", Toast.LENGTH_LONG).show()
@@ -297,18 +303,17 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF007A5E)),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(100.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = Color.White,
+                shadowElevation = 6.dp
             ) {
-                Icon(
-                    imageVector = Icons.Default.ShoppingBag,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.nora_logo),
+                    contentDescription = "Logo Nora Cameroun",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
 
@@ -439,8 +444,9 @@ fun OnboardingScreen(
                         OutlinedTextField(
                             value = whatsappInput,
                             onValueChange = { whatsappInput = it },
-                            label = { Text("Numéro WhatsApp (Obligatoire)") },
-                            placeholder = { Text("Ex: +237 677 88 99 00") },
+                            label = { Text("Numéro WhatsApp (+237 obligatoire)") },
+                            placeholder = { Text("Ex: +237655924778") },
+                            supportingText = { Text("Syntaxe requise: +237 suivi de 9 chiffres (Ex: +237655924778)", fontSize = 10.sp, color = Color.Gray) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("auth_whatsapp_input"),
@@ -538,12 +544,12 @@ fun OnboardingScreen(
                                     Toast.makeText(context, "Email ou mot de passe incorrect", Toast.LENGTH_LONG).show()
                                 }
                             } else {
-                                val whatsapp = whatsappInput.trim()
-                                if (whatsapp.isBlank()) {
-                                    Toast.makeText(context, "Numéro WhatsApp obligatoire pour s'inscrire", Toast.LENGTH_LONG).show()
+                                val validWhatsapp = NoraViewModel.validateAndFormatCameroonPhone(whatsappInput)
+                                if (validWhatsapp == null) {
+                                    Toast.makeText(context, "Numéro WhatsApp invalide ! Syntaxe obligatoire : +237 suivi de 9 chiffres (Ex: +237655924778)", Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
-                                val success = viewModel.registerUser(email, password, whatsapp, referredByCode = referralCodeInput)
+                                val success = viewModel.registerUser(email, password, validWhatsapp, referredByCode = referralCodeInput)
                                 if (success) {
                                     Toast.makeText(context, "Compte créé ! Veuillez configurer votre profil.", Toast.LENGTH_LONG).show()
                                 } else {

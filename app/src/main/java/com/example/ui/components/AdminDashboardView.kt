@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +57,7 @@ fun AdminDashboardView(
         }
     }
     val kycApps by viewModel.kycApplications.collectAsState()
+    var inspectingKycApp by remember { mutableStateOf<UserProfile?>(null) }
     val reportedItems by viewModel.reportedItems.collectAsState()
     val viewsRatio by viewModel.viewsRatio.collectAsState()
     val conversionRate by viewModel.conversionRate.collectAsState()
@@ -1328,7 +1331,7 @@ fun AdminDashboardView(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Validation des Boutiques (KYC)", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Text("Vérifiez l'identité et activez les sanctions en cas de fraude ou de non-paiement de la commission de 5%.", fontSize = 11.sp, color = Color.Gray)
+                    Text("Examinez les pièces d'identité (CNI & Selfie) soumises par les candidats et validez leur statut vendeur.", fontSize = 11.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(10.dp))
 
                     if (kycApps.isEmpty()) {
@@ -1337,6 +1340,7 @@ fun AdminDashboardView(
                         kycApps.forEach { app ->
                             KycApplicationRow(
                                 application = app,
+                                onInspect = { inspectingKycApp = app },
                                 onApprove = { viewModel.approveKyc(app.id); Toast.makeText(context, "Boutique '${app.shopName}' certifiée !", Toast.LENGTH_SHORT).show() },
                                 onReject = { viewModel.sanctionKyc(app.id, "Révoqué"); Toast.makeText(context, "Certification révoquée pour '${app.shopName}'", Toast.LENGTH_SHORT).show() },
                                 onBan = { viewModel.sanctionKyc(app.id, "Banni"); Toast.makeText(context, "Boutique '${app.shopName}' bannie !", Toast.LENGTH_SHORT).show() },
@@ -1497,7 +1501,7 @@ fun AdminDashboardView(
                                 }
                                 val ok = viewModel.scanDeliveryQrCode(scanOrderIdInput)
                                 if (ok) {
-                                    Toast.makeText(context, "Scan Réussi ! Livraison confirmée et commission de 5% transférée au compte administrateur.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Scan Réussi ! Livraison confirmée et commission transférée au compte administrateur.", Toast.LENGTH_LONG).show()
                                     showScanSimDialog = false
                                     scanOrderIdInput = ""
                                 } else {
@@ -1514,16 +1518,231 @@ fun AdminDashboardView(
             }
         }
     }
+
+    // Inspect KYC Documents Dialog Modal (Direct App View for Admin)
+    inspectingKycApp?.let { app ->
+        Dialog(onDismissRequest = { inspectingKycApp = null }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Examen du Dossier KYC", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
+                            Text("Candidat: ${app.name}", fontSize = 12.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(onClick = { inspectingKycApp = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Fermer")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // User & Shop Info Box
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("🏬 Boutique: ${app.shopName} (${app.shopCategory})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("📍 Localisation: ${app.shopLocation}", fontSize = 11.sp, color = Color.Gray)
+                            Text("📝 Description: ${app.shopDescription}", fontSize = 11.sp, color = Color.Gray)
+                            Text("✉️ Email: ${app.email}", fontSize = 11.sp, color = Color.Gray)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("📱 WhatsApp: ${app.whatsappNumber}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val cleanNumber = app.whatsappNumber.replace(" ", "").replace("+", "")
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$cleanNumber&text=Bonjour%20${app.name},%20je%20suis%20l'administrateur%20Nora.%20Je%20vérifie%20votre%20dossier%20de%20boutique."))
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "WhatsApp: ${app.whatsappNumber}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Écrire sur WhatsApp", fontSize = 10.sp, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Document 1 : Carte Nationale d'Identité (CNI) 🪪", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // CNI Visual Display Frame
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("RÉPUBLIQUE DU CAMEROUN", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E40AF))
+                                Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF10B981)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                    Text("DOCUMENT REÇU ✓", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFDBEAFE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Badge, contentDescription = null, tint = Color(0xFF1E40AF), modifier = Modifier.size(44.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(app.idCardPhoto, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E3A8A))
+                                    Text("CNI Officielle - Titulaire: ${app.name}", fontSize = 10.sp, color = Color(0xFF3B82F6))
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Document 2 : Selfie de Vérification 🤳", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Selfie Visual Display Frame
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("CONTRÔLE FACIAL & CNI TENUE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
+                                Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF047857)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                    Text("CONFORME ✓", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFD1FAE5)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Face, contentDescription = null, tint = Color(0xFF047857), modifier = Modifier.size(44.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(app.selfiePhoto, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
+                                    Text("Selfie avec CNI en main", fontSize = 10.sp, color = Color(0xFF10B981))
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text("Action de Décision Administrateur :", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                viewModel.approveKyc(app.id)
+                                Toast.makeText(context, "Boutique '${app.shopName}' certifiée avec succès !", Toast.LENGTH_SHORT).show()
+                                inspectingKycApp = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("✅ Certifier", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.sanctionKyc(app.id, "Révoqué")
+                                Toast.makeText(context, "Dossier rejeté pour '${app.shopName}'", Toast.LENGTH_SHORT).show()
+                                inspectingKycApp = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("❌ Rejeter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                viewModel.sanctionKyc(app.id, "Arnaqueur")
+                                Toast.makeText(context, "Signalé comme Arnaqueur !", Toast.LENGTH_SHORT).show()
+                                inspectingKycApp = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("⚠️ Arnaqueur", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.sanctionKyc(app.id, "Banni")
+                                Toast.makeText(context, "Compte Banni !", Toast.LENGTH_SHORT).show()
+                                inspectingKycApp = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🚫 Bannir Compte", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
 fun KycApplicationRow(
     application: UserProfile,
+    onInspect: () -> Unit,
     onApprove: () -> Unit,
     onReject: () -> Unit,
     onBan: () -> Unit,
     onScammer: () -> Unit
 ) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -1543,66 +1762,127 @@ fun KycApplicationRow(
                 }
             }
 
-            Text("WhatsApp: ${application.whatsappNumber}", fontSize = 11.sp, color = Color.Gray)
             Text("Boutique demandée: ${application.shopName} (${application.shopCategory})", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text("Description: ${application.shopDescription}", fontSize = 10.sp, color = Color.Gray)
             Text("Localisation: ${application.shopLocation}", fontSize = 10.sp, color = Color.Gray)
 
             Divider(color = Color(0xFFE5E7EB))
 
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("📁 CNI: ${application.idCardPhoto}", fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium)
-                Text("📁 Selfie: ${application.selfiePhoto}", fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium)
-                Text("📜 Engagé à payer 5% de frais: Oui, validé", fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium)
+            // Uploaded files summary badges
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFEFF6FF))
+                        .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(6.dp))
+                        .padding(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.Badge, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(14.dp))
+                        Column {
+                            Text("CNI Reçue", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E40AF))
+                            Text(application.idCardPhoto, fontSize = 8.sp, color = Color.Gray, maxLines = 1)
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFECFDF5))
+                        .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(6.dp))
+                        .padding(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.Face, contentDescription = null, tint = Color(0xFF047857), modifier = Modifier.size(14.dp))
+                        Column {
+                            Text("Selfie Reçu", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
+                            Text(application.selfiePhoto, fontSize = 8.sp, color = Color.Gray, maxLines = 1)
+                        }
+                    }
+                }
             }
 
-            // Action Buttons
+            // Primary Inspection & WhatsApp Action Row
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(
+                    onClick = onInspect,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488), contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1.5f)
+                ) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Inspecter Documents", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        try {
+                            val cleanNumber = application.whatsappNumber.replace(" ", "").replace("+", "")
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$cleanNumber&text=Bonjour%20${application.name},%20je%20suis%20l'admin%20Nora."))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "WhatsApp: ${application.whatsappNumber}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("WhatsApp", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Quick Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Certify
                 Button(
                     onClick = onApprove,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Certifier", fontSize = 10.sp, color = Color.White)
+                    Text("Certifier", fontSize = 9.sp, color = Color.White)
                 }
 
-                // Revoke
                 Button(
                     onClick = onReject,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Révoquer", fontSize = 10.sp, color = Color.White)
+                    Text("Révoquer", fontSize = 9.sp, color = Color.White)
                 }
 
-                // Fraud Arnaqueur banner
                 Button(
                     onClick = onScammer,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Arnaqueur", fontSize = 10.sp, color = Color.White)
+                    Text("Arnaqueur", fontSize = 9.sp, color = Color.White)
                 }
 
-                // Ban
                 Button(
                     onClick = onBan,
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Bannir", fontSize = 10.sp, color = Color.White)
+                    Text("Bannir", fontSize = 9.sp, color = Color.White)
                 }
             }
         }
