@@ -230,15 +230,21 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
 
     LaunchedEffect(showSplash) {
         if (!showSplash) {
-            val permissionsToRequest = mutableListOf<String>()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
-                permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
-            } else {
-                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            try {
+                val permissionsToRequest = mutableListOf<String>()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                    permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+                    permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+                } else {
+                    permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+                if (permissionsToRequest.isNotEmpty()) {
+                    permissionLauncher.launch(permissionsToRequest.toTypedArray())
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
             }
-            permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
