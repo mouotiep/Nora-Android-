@@ -10,13 +10,22 @@ data class ProductItem(
     val location: String,
     val description: String,
     val imageUrl: String,
+    val images: List<String> = emptyList(),
+    val variants: List<String> = emptyList(),
     val shopId: String = "shop-default",
     val isCertified: Boolean = true,
     val isScammer: Boolean = false,
     val isBanned: Boolean = false,
     val offersDelivery: Boolean = false,
     val deliveryCost: Int = 0
-)
+) {
+    fun getPhotoList(): List<String> {
+        val list = mutableListOf<String>()
+        if (imageUrl.isNotBlank()) list.add(imageUrl)
+        images.forEach { if (it.isNotBlank() && !list.contains(it)) list.add(it) }
+        return if (list.isEmpty()) listOf("https://images.unsplash.com/photo-1544441893-675973e31985?w=500") else list
+    }
+}
 
 data class ReelComment(
     val id: String,

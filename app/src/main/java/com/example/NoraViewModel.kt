@@ -272,6 +272,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Foumban",
                 description = "Magnifique pagne traditionnel Bamoun tissé à la main, idéal pour les grandes occasions, cérémonies traditionnelles et célébrations royales.",
                 imageUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1544441893-675973e31985?w=500",
+                    "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500",
+                    "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=500"
+                ),
+                variants = listOf("Bleu Royal (Standard)", "Rouge Cérémonie", "Vert Ndop", "Taille Unique (2m x 1m50)"),
                 shopId = "shop-noun",
                 isCertified = true
             ),
@@ -285,6 +291,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Douala",
                 description = "Robe traditionnelle Kaba Ndondo des côtes camerounaises, revisitée avec de la soie légère et d'élégants motifs floraux.",
                 imageUrl = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500",
+                    "https://images.unsplash.com/photo-1544441893-675973e31985?w=500",
+                    "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500"
+                ),
+                variants = listOf("Taille S", "Taille M", "Taille L", "Taille XL", "Rose Floral", "Jaune Sawa"),
                 shopId = "shop-sawa",
                 isCertified = true
             ),
@@ -298,6 +310,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Penja",
                 description = "Poivre blanc de Penja d'indication géographique protégée, mondialement réputé pour son parfum exceptionnel et ses arômes uniques.",
                 imageUrl = "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500",
+                    "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500"
+                ),
+                variants = listOf("Sachet 100g", "Sachet 250g (+2000 FCFA)", "Moulé Fin", "Grains Entiers"),
                 shopId = "shop-penja",
                 isCertified = true
             ),
@@ -311,6 +328,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Maroua",
                 description = "Collier traditionnel de perles fait à la main avec du bois d'ébène poncé, des graines naturelles et des perles de couleur.",
                 imageUrl = "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500",
+                    "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=500"
+                ),
+                variants = listOf("Ébène Noir", "Perles Ambrées", "Multicolore"),
                 shopId = "shop-nord",
                 isCertified = false
             ),
@@ -324,6 +346,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Yaoundé",
                 description = "Sac d'été écologique fabriqué à partir de fibres de raphia naturel tressé, orné de coutures en cuir pour un style unique.",
                 imageUrl = "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=500",
+                    "https://images.unsplash.com/photo-1544441893-675973e31985?w=500"
+                ),
+                variants = listOf("Naturel Raphia", "Lanières Cuir Brun", "Grand Format Beach"),
                 shopId = "shop-sawa-eco",
                 isCertified = true
             ),
@@ -337,6 +364,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 location = "Bafoussam",
                 description = "Savoureuse confiture cuite au feu de bois avec des mangues fraîches du verger et des jus de fruits de la passion sauvages d'Afrique.",
                 imageUrl = "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500",
+                images = listOf(
+                    "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500",
+                    "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500"
+                ),
+                variants = listOf("Pot 250g", "Pot 500g (+1500 FCFA)", "Sans sucre ajouté"),
                 shopId = "shop-delices",
                 isCertified = false
             )
@@ -1114,10 +1146,14 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         location: String,
         description: String,
         imageUrl: String,
+        images: List<String> = emptyList(),
+        variants: List<String> = emptyList(),
         offersDelivery: Boolean = false,
         deliveryCost: Int = 0
     ) {
         val activeUser = _userProfile.value
+        val mainPhoto = imageUrl.ifEmpty { "https://images.unsplash.com/photo-1544441893-675973e31985?w=500" }
+        val allImagesList = if (images.isEmpty()) listOf(mainPhoto) else images
         val newProduct = ProductItem(
             id = "prod-${UUID.randomUUID()}",
             title = title.ifEmpty { "Produit Artisanal" },
@@ -1127,7 +1163,9 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             shopName = shopName.ifEmpty { activeUser.shopName.ifEmpty { "Artisan du Cameroun" } },
             location = location.ifEmpty { activeUser.shopLocation.ifEmpty { "Douala" } },
             description = description.ifEmpty { "Produit conçu à la main avec passion et authenticité camerounaise." },
-            imageUrl = imageUrl.ifEmpty { "https://images.unsplash.com/photo-1544441893-675973e31985?w=500" },
+            imageUrl = mainPhoto,
+            images = allImagesList,
+            variants = variants,
             shopId = activeUser.id,
             isCertified = activeUser.kycStatus == "Certifié",
             isScammer = activeUser.kycStatus == "Arnaqueur",

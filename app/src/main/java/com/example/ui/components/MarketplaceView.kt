@@ -41,6 +41,7 @@ import com.example.NoraViewModel
 import com.example.ProductItem
 import com.example.ShopReview
 import com.example.toLocaleString
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -478,6 +479,10 @@ fun MarketplaceView(
         val discountAmountFCFA = (coinsToUseForDiscount * conversionRate).toInt()
         val finalPriceFCFA = (prod.price - discountAmountFCFA).coerceAtLeast(0)
 
+        val prodPhotoList = remember(prod) { prod.getPhotoList() }
+        var activeDetailPhotoIndex by remember(prod) { mutableIntStateOf(0) }
+        var selectedProductVariant by remember(prod) { mutableStateOf<String?>(prod.variants.firstOrNull()) }
+
         Dialog(onDismissRequest = { selectedProductDetails = null }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -488,22 +493,41 @@ fun MarketplaceView(
                     .verticalScroll(rememberScrollState())
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Image Header
+                    // Image Header Gallery Carousel
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(210.dp)
                             .clip(RoundedCornerShape(12.dp))
                     ) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(prod.imageUrl)
+                                .data(prodPhotoList.getOrElse(activeDetailPhotoIndex) { prod.imageUrl })
                                 .crossfade(true)
                                 .build(),
                             contentDescription = prod.title,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
+
+                        // Photo Counter Badge
+                        if (prodPhotoList.size > 1) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.Black.copy(alpha = 0.65f),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "${activeDetailPhotoIndex + 1} / ${prodPhotoList.size}",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                         
                         // Scammer Badge Banner
                         if (prod.isScammer) {
@@ -521,6 +545,39 @@ fun MarketplaceView(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+                            }
+                        }
+                    }
+
+                    // Thumbnails Selector Row
+                    if (prodPhotoList.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            prodPhotoList.forEachIndexed { index, pUrl ->
+                                val isSel = index == activeDetailPhotoIndex
+                                Box(
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(
+                                            width = if (isSel) 2.5.dp else 1.dp,
+                                            color = if (isSel) Color(0xFF10B981) else Color(0xFFCBD5E1),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable { activeDetailPhotoIndex = index }
+                                ) {
+                                    AsyncImage(
+                                        model = pUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
                             }
                         }
                     }
@@ -553,6 +610,50 @@ fun MarketplaceView(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1F2937)
                     )
+
+                    // Variants selector chips if product has variants
+                    if (prod.variants.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Variantes disponibles :", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                prod.variants.forEach { varName ->
+                                    val isSelectedVariant = varName == selectedProductVariant
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelectedVariant) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelectedVariant) Color(0xFF047857) else Color(0xFFE2E8F0),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { selectedProductVariant = varName }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = varName,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelectedVariant) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelectedVariant) Color.White else Color(0xFF334155)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -1390,6 +1491,8 @@ fun MarketplaceView(
         var prodCategory by remember { mutableStateOf("Objets d'Art") }
         var prodDesc by remember { mutableStateOf("") }
         var prodImage by remember { mutableStateOf("") }
+        var prodAdditionalImages by remember { mutableStateOf("") }
+        var prodVariants by remember { mutableStateOf("") }
         var offersDelivery by remember { mutableStateOf(false) }
         var deliveryCostInput by remember { mutableStateOf("") }
 
@@ -1427,7 +1530,7 @@ fun MarketplaceView(
                     OutlinedTextField(
                         value = prodImage,
                         onValueChange = { prodImage = it },
-                        label = { Text("Photo de l'article (URL ou Galerie)") },
+                        label = { Text("Photo principale (URL ou Galerie)") },
                         placeholder = { Text("Ex: content://... ou https://...") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1442,6 +1545,24 @@ fun MarketplaceView(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("📱 Choisir photo depuis le téléphone", fontSize = 11.sp)
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = prodAdditionalImages,
+                        onValueChange = { prodAdditionalImages = it },
+                        label = { Text("Photos supplémentaires (URLs séparées par virugles)") },
+                        placeholder = { Text("https://img1.jpg, https://img2.jpg") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = prodVariants,
+                        onValueChange = { prodVariants = it },
+                        label = { Text("Variantes du produit (Couleurs, Tailles...)") },
+                        placeholder = { Text("Ex: Taille M, Taille L, Rouge, Vert, Noir") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
@@ -1496,6 +1617,9 @@ fun MarketplaceView(
                                     Toast.makeText(context, "Informations incomplètes", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
+                                val extraImagesList = prodAdditionalImages.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                                val variantsList = prodVariants.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
                                 viewModel.addProduct(
                                     title = prodTitle,
                                     category = prodCategory,
@@ -1505,6 +1629,8 @@ fun MarketplaceView(
                                     location = userProfile.shopLocation,
                                     description = prodDesc,
                                     imageUrl = prodImage,
+                                    images = extraImagesList,
+                                    variants = variantsList,
                                     offersDelivery = offersDelivery,
                                     deliveryCost = if (offersDelivery) (deliveryCostInput.toIntOrNull() ?: 0) else 0
                                 )
@@ -1650,172 +1776,144 @@ fun ProductCardItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(210.dp)
             .clickable { onClick() }
             .testTag("product_item_card"),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = if (isUserPreferred) BorderStroke(1.5.dp, Color(0xFF10B981).copy(alpha = 0.5f)) else null
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Black),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = if (isUserPreferred) BorderStroke(2.dp, Color(0xFF10B981)) else null
     ) {
-        Column {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Main Product Photo filling 100% space
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(product.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = product.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // Gradient Overlay for readability
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(130.dp)
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(product.imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = product.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.35f),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.85f)
+                            )
+                        )
+                    )
+            )
 
-                // White circular badge with favorite heart icon (top-right)
+            // TOP ROW: Certified Index Badge (if certified) & Liker Heart Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .align(Alignment.TopCenter),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Certified Index Badge
+                if (product.isCertified) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF059669)) // Green certified
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Certifié",
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = "Certifié",
+                                color = Color.White,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                // Liker Heart Button
                 Surface(
                     shape = CircleShape,
                     color = Color.White,
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(28.dp)
+                        .size(30.dp)
                         .clickable { onFavoriteToggle() },
-                    shadowElevation = 2.dp
+                    shadowElevation = 3.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Favori",
                             tint = if (isFavorite) Color.Red else Color.Gray,
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(16.dp)
                         )
-                    }
-                }
-
-                // Green location badge/capsule with dynamic location text (bottom-left)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF047857)) // Capsule green
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(10.dp)
-                        )
-                        Text(
-                            text = product.location,
-                            color = Color.White,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-
-                // Scammer Caution
-                if (product.isScammer) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.Red.copy(alpha = 0.9f))
-                            .align(Alignment.BottomCenter)
-                            .padding(vertical = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("⚠️ ARNAQUEUR", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text(
-                    text = product.category,
-                    fontSize = 9.sp,
-                    color = Color(0xFF10B981),
-                    fontWeight = FontWeight.Bold
-                )
+            // BOTTOM OVERLAY: Nom de la boutique, Nom du produit, Prix
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(10.dp)
+            ) {
+                // Nom de la boutique (+ badge certifié si présent)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = product.shopName,
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(2.dp))
 
+                // Nom (Title)
                 Text(
                     text = product.title,
-                    fontSize = 13.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937),
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${product.price.toLocaleString()} F",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
-                    
-                    Text(
-                        text = "Stock: ${product.stock}",
-                        fontSize = 10.sp,
-                        color = if (product.stock < 5) Color.Red else Color.Gray,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = product.shopName,
-                        fontSize = 10.sp,
-                        color = Color.Gray,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (product.isCertified) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFD1FAE5))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Verified,
-                                contentDescription = "Certified",
-                                tint = Color(0xFF065F46),
-                                modifier = Modifier.size(9.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "Certifié",
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF065F46)
-                            )
-                        }
-                    }
-                }
+                // Prix
+                Text(
+                    text = "${product.price.toLocaleString()} FCFA",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF34D399) // High contrast emerald green
+                )
             }
         }
     }

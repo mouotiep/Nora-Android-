@@ -78,6 +78,8 @@ fun ShopManagerDialog(
     var newProdCategory by remember { mutableStateOf("Mode & Vêtements") }
     var newProdDesc by remember { mutableStateOf("") }
     var newProdImageUrl by remember { mutableStateOf("") }
+    var newProdAdditionalImages by remember { mutableStateOf("") }
+    var newProdVariants by remember { mutableStateOf("") }
 
     // Shop Profile Edit state
     var editShopName by remember { mutableStateOf(userProfile.shopName) }
@@ -486,7 +488,7 @@ fun ShopManagerDialog(
                                             OutlinedTextField(
                                                 value = newProdImageUrl,
                                                 onValueChange = { newProdImageUrl = it },
-                                                label = { Text("Photo de l'article (URL ou Galerie)", fontSize = 10.sp) },
+                                                label = { Text("Photo principale (URL)", fontSize = 10.sp) },
                                                 placeholder = { Text("https://exemple.com/image.png", fontSize = 10.sp) },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 maxLines = 1,
@@ -501,8 +503,26 @@ fun ShopManagerDialog(
                                             ) {
                                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp))
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                Text("📱 Choisir photo depuis le téléphone", fontSize = 10.sp)
+                                                Text("📱 Choisir photo principale depuis le téléphone", fontSize = 10.sp)
                                             }
+
+                                            OutlinedTextField(
+                                                value = newProdAdditionalImages,
+                                                onValueChange = { newProdAdditionalImages = it },
+                                                label = { Text("Photos supplémentaires (URLs séparées par des virgules)", fontSize = 10.sp) },
+                                                placeholder = { Text("https://img1.png, https://img2.png", fontSize = 10.sp) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
+                                            )
+
+                                            OutlinedTextField(
+                                                value = newProdVariants,
+                                                onValueChange = { newProdVariants = it },
+                                                label = { Text("Variantes du produit (séparées par des virgules)", fontSize = 10.sp) },
+                                                placeholder = { Text("Ex: Taille M, Taille L, Rouge, Vert, Noir", fontSize = 10.sp) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
+                                            )
 
                                             Button(
                                                 onClick = {
@@ -512,6 +532,9 @@ fun ShopManagerDialog(
                                                     }
                                                     val priceInt = newProdPrice.toIntOrNull() ?: 0
                                                     val stockInt = newProdStock.toIntOrNull() ?: 5
+                                                    val extraImagesList = newProdAdditionalImages.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                                                    val variantsList = newProdVariants.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
                                                     viewModel.addProduct(
                                                         title = newProdTitle,
                                                         category = newProdCategory,
@@ -520,7 +543,9 @@ fun ShopManagerDialog(
                                                         shopName = myShopName,
                                                         location = userProfile.shopLocation,
                                                         description = newProdDesc,
-                                                        imageUrl = newProdImageUrl
+                                                        imageUrl = newProdImageUrl,
+                                                        images = extraImagesList,
+                                                        variants = variantsList
                                                     )
                                                     Toast.makeText(context, "Produit '$newProdTitle' publié avec succès !", Toast.LENGTH_SHORT).show()
                                                     
@@ -530,6 +555,8 @@ fun ShopManagerDialog(
                                                     newProdStock = ""
                                                     newProdDesc = ""
                                                     newProdImageUrl = ""
+                                                    newProdAdditionalImages = ""
+                                                    newProdVariants = ""
                                                     showAddForm = false
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
