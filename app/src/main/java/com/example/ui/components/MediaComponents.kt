@@ -68,7 +68,12 @@ fun UniversalVideoPlayer(
                             hasError = true
                         }
                         setOnPreparedListener { mp ->
-                            mp.isLooping = true
+                            try {
+                                mp.isLooping = true
+                                mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                            } catch (e: Exception) {
+                                // Fallback for older player drivers
+                            }
                             isPrepared = true
                             if (autoPlay) {
                                 start()
