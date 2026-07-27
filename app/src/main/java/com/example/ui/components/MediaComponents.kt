@@ -31,6 +31,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
+class FullScreenVideoView(context: Context) : VideoView(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = getDefaultSize(0, widthMeasureSpec)
+        val height = getDefaultSize(0, heightMeasureSpec)
+        setMeasuredDimension(width, height)
+    }
+}
+
 /**
  * Universal Video Player for playing both local device videos (content:// or file://)
  * and web streaming videos using native Android VideoView.
@@ -56,7 +64,7 @@ fun UniversalVideoPlayer(
         ) {
             AndroidView(
                 factory = { ctx ->
-                    VideoView(ctx).apply {
+                    FullScreenVideoView(ctx).apply {
                         if (showControls) {
                             val controller = MediaController(ctx)
                             controller.setAnchorView(this)

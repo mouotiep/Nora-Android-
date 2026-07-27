@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -907,167 +908,96 @@ fun ReelPageItem(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Simulated video canvas background with colors and dynamic art
+        // Full screen TikTok style media canvas covering 100% of user screen
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF0F172A),
-                            Color(0xFF10B981).copy(alpha = 0.2f),
-                            Color(0xFF0F172A)
-                        )
-                    )
+                .graphicsLayer(
+                    scaleX = reel.zoomLevel,
+                    scaleY = reel.zoomLevel,
+                    rotationZ = reel.rotationAngle
                 )
+                .background(Color.Black)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Spinning vinyl or cultural visual placeholder
-                Box(
+            if (reel.mediaType == "Vidéo" && !isStreamingFinished) {
+                // Streaming progress ring overlay
+                Column(
                     modifier = Modifier
-                        .size(
-                            width = when(reel.aspectRatio) {
-                                "1:1" -> 160.dp
-                                "9:16" -> 120.dp
-                                "16:9" -> 200.dp
-                                "4:5" -> 140.dp
-                                else -> 160.dp
-                            },
-                            height = when(reel.aspectRatio) {
-                                "1:1" -> 160.dp
-                                "9:16" -> 210.dp
-                                "16:9" -> 112.dp
-                                "4:5" -> 175.dp
-                                else -> 160.dp
-                            }
-                        )
-                        .graphicsLayer(
-                            scaleX = reel.zoomLevel,
-                            scaleY = reel.zoomLevel,
-                            rotationZ = reel.rotationAngle
-                        )
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(3.dp, Color(0xFF10B981), RoundedCornerShape(8.dp))
-                        .background(Color.DarkGray)
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.85f)),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (reel.mediaType == "Vidéo" && !isStreamingFinished) {
-                        // Streaming progress ring overlay
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.7f)),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            CircularProgressIndicator(
-                                progress = { downloadProgress / 100f },
-                                color = Color(0xFF10B981),
-                                strokeWidth = 3.dp,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Flux continu\n${downloadProgress}%",
-                                fontSize = 9.sp,
-                                color = Color.White,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                lineHeight = 10.sp
-                            )
-                        }
-                    } else {
-                        if (reel.mediaUrl.isNotBlank()) {
-                            UniversalMediaView(
-                                mediaUrl = reel.mediaUrl,
-                                mediaType = reel.mediaType,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
+                    CircularProgressIndicator(
+                        progress = { downloadProgress / 100f },
+                        color = Color(0xFF10B981),
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(44.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Flux continu HD TikTok...\n${downloadProgress}%",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+            } else {
+                if (reel.mediaUrl.isNotBlank()) {
+                    UniversalMediaView(
+                        mediaUrl = reel.mediaUrl,
+                        mediaType = reel.mediaType,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF0F172A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .align(Alignment.Center)
+                                tint = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier.size(64.dp)
                             )
-                        }
-                        
-                        if (reel.mediaType == "Vidéo") {
-                            // Blinking live streaming dot
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Red)
-                                )
-                                Text("STREAMING LIVE", fontSize = 7.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (reel.mediaType == "Photo") "Séquence Photo Artisanat" else "Vidéo TikTok Nora",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = if (reel.mediaType == "Photo") "[ 📷 Portrait Artisanat ]" else "[ 🎥 Séquence Vidéo Nora ]",
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Box(
+                
+                if (reel.mediaType == "Vidéo") {
+                    // Blinking live streaming tag top left
+                    Row(
                         modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 16.dp, start = 16.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF10B981).copy(alpha = 0.2f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "Format: ${reel.aspectRatio}",
-                            color = Color(0xFF10B981),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (reel.zoomLevel > 1f || reel.rotationAngle > 0f) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Zoom ${reel.zoomLevel}x" + (if (reel.rotationAngle > 0) " • ${reel.rotationAngle.toInt()}°" else ""),
-                                color = Color.White,
-                                fontSize = 10.sp
-                            )
-                        }
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color.Red)
+                        )
+                        Text("STREAMING LIVE", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (reel.mediaType == "Photo") "Image fixe rognée et optimisée" else "Séquence active (+10 Vues toutes les 4s)",
-                    color = Color(0xFF10B981),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
 
