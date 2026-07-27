@@ -1,7 +1,10 @@
 package com.example.ui.components
 
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -496,11 +499,12 @@ fun ReelsView(
 
     // Interactive Media Upload & Cropping Dialog for Publishing Reels
     if (showPublishReelDialog) {
+        val context = LocalContext.current
         var captionInput by remember { mutableStateOf("") }
         var categoryInput by remember { mutableStateOf("Mode & Vêtements") }
         var isVideoSelected by remember { mutableStateOf(true) } // true: Video, false: Photo
         
-        // Simulating the imported file from phone
+        var selectedUri by remember { mutableStateOf<Uri?>(null) }
         var selectedFileName by remember { mutableStateOf<String?>(null) }
         
         // Cropping states
@@ -510,6 +514,18 @@ fun ReelsView(
         var cropRotationAngle by remember { mutableStateOf(0f) }
         var videoStartSec by remember { mutableFloatStateOf(0.0f) }
         var videoEndSec by remember { mutableFloatStateOf(35.0f) }
+
+        // System gallery picker launcher
+        val mediaPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                grantUriReadPermission(context, uri)
+                selectedUri = uri
+                selectedFileName = uri.lastPathSegment ?: if (isVideoSelected) "video.mp4" else "photo.jpg"
+                showCroppingControls = true
+            }
+        }
 
         Dialog(onDismissRequest = { showPublishReelDialog = false }) {
             Surface(
@@ -545,7 +561,7 @@ fun ReelsView(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
-                            onClick = { isVideoSelected = true; selectedFileName = null; showCroppingControls = false },
+                            onClick = { isVideoSelected = true; selectedFileName = null; selectedUri = null; showCroppingControls = false },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
                                 contentColor = if (isVideoSelected) Color.White else Color.Black
@@ -559,7 +575,7 @@ fun ReelsView(
                         }
 
                         Button(
-                            onClick = { isVideoSelected = false; selectedFileName = null; showCroppingControls = false },
+                            onClick = { isVideoSelected = false; selectedFileName = null; selectedUri = null; showCroppingControls = false },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (!isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
                                 contentColor = if (!isVideoSelected) Color.White else Color.Black
@@ -575,7 +591,7 @@ fun ReelsView(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Simulated File Upload Section
+                    // Real File Upload Section
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -584,13 +600,9 @@ fun ReelsView(
                         Column(
                             modifier = Modifier
                                 .clickable {
-                                    // Simulate selecting a file from telephone gallery
-                                    selectedFileName = if (isVideoSelected) {
-                                        listOf("sculpture_bois.mp4", "tissage_pagne.mp4", "miel_recolte.mp4").random()
-                                    } else {
-                                        listOf("masque_bamoun.jpg", "collier_perles.jpg", "pagne_detail.jpg").random()
-                                    }
-                                    showCroppingControls = true
+                                    // Launch real system media gallery picker on telephone
+                                    val mimeType = if (isVideoSelected) "video/*" else "image/*"
+                                    mediaPickerLauncher.launch(mimeType)
                                 }
                                 .padding(16.dp)
                                 .fillMaxWidth(),
@@ -604,13 +616,13 @@ fun ReelsView(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             if (selectedFileName == null) {
-                                Text("Télécharger depuis le téléphone", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
-                                Text("Formats acceptés: MP4, MOV, JPG, PNG", fontSize = 10.sp, color = Color.Gray)
+                                Text("Choisir un fichier sur le téléphone 📱", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                                Text("Sélectionnez dans la galerie (MP4, MOV, JPG, PNG)", fontSize = 10.sp, color = Color.Gray)
                             } else {
-                                Text("Fichier importé avec succès !", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                Text("Fichier sélectionné avec succès !", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                 Text(selectedFileName!!, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF334155))
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("Cliquez pour changer de fichier", fontSize = 9.sp, color = Color.Gray)
+                                Text("Cliquez pour choisir un autre fichier", fontSize = 9.sp, color = Color.Gray)
                             }
                         }
                     }
@@ -837,7 +849,8 @@ fun ReelsView(
                                     mediaType = if (isVideoSelected) "Vidéo" else "Photo",
                                     aspectRatio = cropAspectRatio,
                                     zoomLevel = cropZoomLevel,
-                                    rotationAngle = cropRotationAngle
+                                    rotationAngle = cropRotationAngle,
+                                    mediaUrl = selectedUri?.toString() ?: ""
                                 )
                                 Toast.makeText(context, "Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
                                 showPublishReelDialog = false
@@ -968,14 +981,22 @@ fun ReelPageItem(
                             )
                         }
                     } else {
-                        Icon(
-                            imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier
-                                .size(56.dp)
-                                .align(Alignment.Center)
-                        )
+                        if (reel.mediaUrl.isNotBlank()) {
+                            UniversalMediaView(
+                                mediaUrl = reel.mediaUrl,
+                                mediaType = reel.mediaType,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .align(Alignment.Center)
+                            )
+                        }
                         
                         if (reel.mediaType == "Vidéo") {
                             // Blinking live streaming dot

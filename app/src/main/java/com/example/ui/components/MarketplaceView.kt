@@ -3,6 +3,9 @@ package com.example.ui.components
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -58,6 +61,7 @@ fun MarketplaceView(
     val adminAdImageUrl by viewModel.adminAdImageUrl.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchExpanded by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("Tous") }
     var showCreateCategoryDialog by remember { mutableStateOf(false) }
 
@@ -86,116 +90,170 @@ fun MarketplaceView(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Gorgeous Dynamic Custom Ad Banner Card with optional image and Cameroon theme
-        Card(
+        // Ad Banner Card + Search Icon Button side-by-side
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 14.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier.fillMaxWidth()
+            // Ad Banner Card taking weight(1f)
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                if (adminAdImageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(adminAdImageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Affiche Publicitaire",
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(20.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    // Dark semi-transparent overlay to keep search text/labels highly visible
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.45f))
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(Color(0xFF0F9F72), Color(0xFF007A5E))
-                                )
-                            )
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp)
+                Box(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = adminAdTitle,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                    if (adminAdImageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(adminAdImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Affiche Publicitaire",
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        Text(
-                            text = "🇨🇲",
-                            fontSize = 22.sp
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(Color.Black.copy(alpha = 0.45f))
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF0F9F72), Color(0xFF007A5E))
+                                    )
+                                )
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = adminAdText,
-                        fontSize = 11.sp,
-                        color = Color.White.copy(alpha = 0.9f),
-                        lineHeight = 15.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Integrated Search Input Bar (White Pill Form)
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { 
-                            Text(
-                                text = "Rechercher vêtements, épices, kaba, co...", 
-                                fontSize = 13.sp, 
-                                color = Color.Gray.copy(alpha = 0.8f)
-                            ) 
-                        },
-                        leadingIcon = { 
-                            Icon(
-                                imageVector = Icons.Default.Search, 
-                                contentDescription = null, 
-                                tint = Color.Gray, 
-                                modifier = Modifier.size(20.dp)
-                            ) 
-                        },
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("marketplace_search"),
-                        shape = RoundedCornerShape(100.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color.White,
-                            cursorColor = Color(0xFF007A5E)
-                        ),
-                        singleLine = true
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = adminAdTitle,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "🇨🇲",
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = adminAdText,
+                            fontSize = 10.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 13.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Search Icon Button placed right beside the banner ("à côté de la bannière")
+            Surface(
+                onClick = { isSearchExpanded = !isSearchExpanded },
+                shape = CircleShape,
+                color = if (isSearchExpanded || searchQuery.isNotEmpty()) Color(0xFF10B981) else Color.White,
+                shadowElevation = 3.dp,
+                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f)),
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isSearchExpanded && searchQuery.isNotEmpty()) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = "Recherche",
+                        tint = if (isSearchExpanded || searchQuery.isNotEmpty()) Color.White else Color(0xFF007A5E),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
+        }
+
+        // Expandable / Unfolding Search Input Field (Déroulant)
+        AnimatedVisibility(
+            visible = isSearchExpanded || searchQuery.isNotEmpty(),
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { 
+                    Text(
+                        text = "Rechercher vêtements, épices, kaba...", 
+                        fontSize = 12.sp, 
+                        color = Color.Gray.copy(alpha = 0.8f)
+                    ) 
+                },
+                leadingIcon = { 
+                    Icon(
+                        imageVector = Icons.Default.Search, 
+                        contentDescription = null, 
+                        tint = Color(0xFF007A5E), 
+                        modifier = Modifier.size(18.dp)
+                    ) 
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Effacer",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = { isSearchExpanded = false }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Fermer",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .height(46.dp)
+                    .testTag("marketplace_search"),
+                shape = RoundedCornerShape(100.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color(0xFF10B981),
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = Color(0xFF007A5E)
+                ),
+                singleLine = true
+            )
         }
 
         // Section Title: "FILTRER PAR CATÉGORIE" & "+ Créer une catégorie" button
@@ -275,55 +333,60 @@ fun MarketplaceView(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .padding(bottom = 10.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
                 border = BorderStroke(1.dp, Color(0xFFD1FAE5))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = when (userProfile.kycStatus) {
-                                "Certifié" -> "Votre Boutique: ${userProfile.shopName}"
+                                "Certifié" -> "Boutique: ${userProfile.shopName}"
                                 "En Attente" -> "KYC Boutique en attente"
                                 "Banni" -> "Boutique bannie"
-                                "Arnaqueur" -> "Boutique signalée fraude"
-                                else -> "Devenez Vendeur Certifié !"
+                                "Arnaqueur" -> "Boutique signalée"
+                                else -> "Devenez Vendeur Certifié (KYC)"
                             },
-                            fontSize = 14.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF065F46)
+                            color = Color(0xFF065F46),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = when (userProfile.kycStatus) {
-                                "Certifié" -> "Publiez vos produits artisanaux dès maintenant."
-                                "En Attente" -> "L'administrateur examine vos documents d'identité."
-                                "Banni" -> "Votre accès vendeur est révoqué définitivement."
-                                "Arnaqueur" -> "Profil bloqué en mode arnaqueur suspecté."
-                                else -> "Ouvrez votre boutique en validant votre identité (KYC)."
+                                "Certifié" -> "Publiez vos produits artisanaux."
+                                "En Attente" -> "Examen en cours par l'admin."
+                                "Banni" -> "Accès révoqué."
+                                "Arnaqueur" -> "Profil bloqué."
+                                else -> "Ouvrez votre boutique certifiée."
                             },
-                            fontSize = 11.sp,
-                            color = Color(0xFF047857)
+                            fontSize = 9.sp,
+                            color = Color(0xFF047857),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (userProfile.kycStatus == "Certifié") {
                             Button(
                                 onClick = { showShopManagerDialog = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
                             ) {
-                                Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Gérer Boutique", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Gérer Boutique", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         } else {
                             Button(
@@ -331,16 +394,17 @@ fun MarketplaceView(
                                     if (userProfile.kycStatus == "Aucun" || userProfile.kycStatus == "Révoqué") {
                                         showKycDialog = true
                                     } else {
-                                        Toast.makeText(context, "Statut KYC actuel: ${userProfile.kycStatus}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Statut KYC: ${userProfile.kycStatus}", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
                             ) {
                                 Text(
                                     text = "Gérer KYC",
-                                    fontSize = 11.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
@@ -1329,6 +1393,15 @@ fun MarketplaceView(
         var offersDelivery by remember { mutableStateOf(false) }
         var deliveryCostInput by remember { mutableStateOf("") }
 
+        val productImagePicker = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            uri?.let {
+                grantUriReadPermission(context, it)
+                prodImage = it.toString()
+            }
+        }
+
         Dialog(onDismissRequest = { showAddProductDialog = false }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -1350,7 +1423,25 @@ fun MarketplaceView(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = prodDesc, onValueChange = { prodDesc = it }, label = { Text("Description détaillée") }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = prodImage, onValueChange = { prodImage = it }, label = { Text("URL de la photo") }, placeholder = { Text("Ex: https://...") }, modifier = Modifier.fillMaxWidth())
+                    
+                    OutlinedTextField(
+                        value = prodImage,
+                        onValueChange = { prodImage = it },
+                        label = { Text("Photo de l'article (URL ou Galerie)") },
+                        placeholder = { Text("Ex: content://... ou https://...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { productImagePicker.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("📱 Choisir photo depuis le téléphone", fontSize = 11.sp)
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(

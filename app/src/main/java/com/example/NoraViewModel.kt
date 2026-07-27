@@ -597,7 +597,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _userProfile.value = newProfile
         _walletNCoins.value = 1.0 // Set welcome wallet balance
         _activeRole.value = "Acheteur"
-        _currentTabIndex.value = 1 // Open Boutiques tab first on registration
+        _currentTabIndex.value = 0 // Open Boutiques tab first on registration
         _totalUsersCount.update { it + 1 }
         _activeUsersCount.update { it + 1 }
         _totalDistributedNCoins.update { it + 1 } // Dynamic N-Coins welcome gift
@@ -952,7 +952,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         mediaType: String = "Vidéo",
         aspectRatio: String = "9:16",
         zoomLevel: Float = 1f,
-        rotationAngle: Float = 0f
+        rotationAngle: Float = 0f,
+        mediaUrl: String = ""
     ) {
         val activeUser = _userProfile.value
         val newReel = ReelVideo(
@@ -968,7 +969,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             mediaType = mediaType,
             aspectRatio = aspectRatio,
             zoomLevel = zoomLevel,
-            rotationAngle = rotationAngle
+            rotationAngle = rotationAngle,
+            mediaUrl = mediaUrl
         )
         _reels.update { listOf(newReel) + it }
     }

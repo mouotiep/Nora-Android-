@@ -206,7 +206,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
     var showNotificationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentNotification) {
-        if (currentNotification != null && currentTabIndex != 0) {
+        if (currentNotification != null && currentTabIndex != 1) {
             sendSystemNotification(context, "Nora Cameroun 🪙", currentNotification!!)
         }
     }
@@ -260,7 +260,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
         // Main Application Shell
         Box(modifier = Modifier.fillMaxSize()) {            Scaffold(
                 topBar = {
-                    if (currentTabIndex != 2 || activeChatId == null) {
+                    if (currentTabIndex != 3 || activeChatId == null) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -399,37 +399,19 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                     }
                 },
             bottomBar = {
-                if (currentTabIndex != 2 || activeChatId == null) {
+                if (currentTabIndex != 3 || activeChatId == null) {
                     NavigationBar(
                         containerColor = Color.White,
                         tonalElevation = 8.dp,
                         modifier = Modifier.navigationBarsPadding()
                     ) {
-                    // Tab 0: Vidéos (Reels)
+                    // Tab 0: Boutiques (Marketplace)
                     NavigationBarItem(
                         selected = currentTabIndex == 0,
                         onClick = { viewModel.setCurrentTabIndex(0) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 0) Icons.Filled.VideoLibrary else Icons.Outlined.VideoLibrary,
-                                contentDescription = "Vidéos"
-                            )
-                        },
-                        label = { Text("Vidéos", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF10B981),
-                            selectedTextColor = Color(0xFF10B981),
-                            indicatorColor = Color(0xFFEFF6FF)
-                        )
-                    )
-                    
-                    // Tab 1: Boutiques (Marketplace)
-                    NavigationBarItem(
-                        selected = currentTabIndex == 1,
-                        onClick = { viewModel.setCurrentTabIndex(1) },
-                        icon = {
-                            Icon(
-                                imageVector = if (currentTabIndex == 1) Icons.Filled.Storefront else Icons.Outlined.Storefront,
+                                imageVector = if (currentTabIndex == 0) Icons.Filled.Storefront else Icons.Outlined.Storefront,
                                 contentDescription = "Boutiques"
                             )
                         },
@@ -441,13 +423,49 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
                     
-                    // Tab 2: Messages (Conversations)
+                    // Tab 1: Vidéos (Reels)
+                    NavigationBarItem(
+                        selected = currentTabIndex == 1,
+                        onClick = { viewModel.setCurrentTabIndex(1) },
+                        icon = {
+                            Icon(
+                                imageVector = if (currentTabIndex == 1) Icons.Filled.VideoLibrary else Icons.Outlined.VideoLibrary,
+                                contentDescription = "Reels"
+                            )
+                        },
+                        label = { Text("Reels", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color(0xFF10B981),
+                            selectedTextColor = Color(0xFF10B981),
+                            indicatorColor = Color(0xFFEFF6FF)
+                        )
+                    )
+                    
+                    // Tab 2: Favoris
                     NavigationBarItem(
                         selected = currentTabIndex == 2,
                         onClick = { viewModel.setCurrentTabIndex(2) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 2) Icons.Filled.Chat else Icons.Outlined.Chat,
+                                imageVector = if (currentTabIndex == 2) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Favoris"
+                            )
+                        },
+                        label = { Text("Favoris", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color(0xFF10B981),
+                            selectedTextColor = Color(0xFF10B981),
+                            indicatorColor = Color(0xFFEFF6FF)
+                        )
+                    )
+
+                    // Tab 3: Messages (Conversations)
+                    NavigationBarItem(
+                        selected = currentTabIndex == 3,
+                        onClick = { viewModel.setCurrentTabIndex(3) },
+                        icon = {
+                            Icon(
+                                imageVector = if (currentTabIndex == 3) Icons.Filled.Chat else Icons.Outlined.Chat,
                                 contentDescription = "Messages"
                             )
                         },
@@ -459,15 +477,15 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
                     
-                    // Tab 3: Adaptative Role Dashboard
+                    // Tab 4: Adaptative Role Dashboard / Profil
                     NavigationBarItem(
-                        selected = currentTabIndex == 3,
-                        onClick = { viewModel.setCurrentTabIndex(3) },
+                        selected = currentTabIndex == 4,
+                        onClick = { viewModel.setCurrentTabIndex(4) },
                         icon = {
                             Icon(
                                 imageVector = when (activeRole) {
-                                    "Admin" -> if (currentTabIndex == 3) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
-                                    else -> if (currentTabIndex == 3) Icons.Filled.AccountBox else Icons.Outlined.AccountBox
+                                    "Admin" -> if (currentTabIndex == 4) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
+                                    else -> if (currentTabIndex == 4) Icons.Filled.AccountBox else Icons.Outlined.AccountBox
                                 },
                                 contentDescription = "Mon Profil"
                             )
@@ -499,10 +517,11 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                     .background(Color(0xFFF8FAFC))
             ) {
                 when (currentTabIndex) {
-                    0 -> ReelsView(viewModel = viewModel)
-                    1 -> MarketplaceView(viewModel = viewModel)
-                    2 -> MessagesView(viewModel = viewModel)
-                    3 -> {
+                    0 -> MarketplaceView(viewModel = viewModel)
+                    1 -> ReelsView(viewModel = viewModel)
+                    2 -> FavoritesView(viewModel = viewModel)
+                    3 -> MessagesView(viewModel = viewModel)
+                    4 -> {
                         when (activeRole) {
                             "Admin" -> AdminDashboardView(viewModel = viewModel)
                             else -> ProfileView(viewModel = viewModel)
@@ -663,7 +682,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
 
         // Custom Notification Heads-Up Alert Overlay (hidden when watching videos on tab 0)
         AnimatedVisibility(
-            visible = currentNotification != null && currentTabIndex != 0,
+            visible = currentNotification != null && currentTabIndex != 1,
             enter = slideInVertically(initialOffsetY = { -it }),
             exit = slideOutVertically(targetOffsetY = { -it }),
             modifier = Modifier

@@ -3,6 +3,8 @@ package com.example.ui.components
 import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -82,6 +84,24 @@ fun ShopManagerDialog(
     var editShopDesc by remember { mutableStateOf(userProfile.shopDescription) }
     var editShopLoc by remember { mutableStateOf(userProfile.shopLocation) }
     var editShopPic by remember { mutableStateOf(userProfile.shopPic) }
+
+    val prodPhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            grantUriReadPermission(context, it)
+            newProdImageUrl = it.toString()
+        }
+    }
+
+    val shopLogoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            grantUriReadPermission(context, it)
+            editShopPic = it.toString()
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -466,12 +486,23 @@ fun ShopManagerDialog(
                                             OutlinedTextField(
                                                 value = newProdImageUrl,
                                                 onValueChange = { newProdImageUrl = it },
-                                                label = { Text("URL de l'image (optionnelle)", fontSize = 10.sp) },
+                                                label = { Text("Photo de l'article (URL ou Galerie)", fontSize = 10.sp) },
                                                 placeholder = { Text("https://exemple.com/image.png", fontSize = 10.sp) },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 maxLines = 1,
                                                 textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
                                             )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Button(
+                                                onClick = { prodPhotoLauncher.launch("image/*") },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                                shape = RoundedCornerShape(6.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("📱 Choisir photo depuis le téléphone", fontSize = 10.sp)
+                                            }
 
                                             Button(
                                                 onClick = {
@@ -748,10 +779,21 @@ fun ShopManagerDialog(
                                 OutlinedTextField(
                                     value = editShopPic,
                                     onValueChange = { editShopPic = it },
-                                    label = { Text("URL du logo de la boutique (Optionnelle)", fontSize = 11.sp) },
+                                    label = { Text("Logo de la boutique (URL ou Galerie)", fontSize = 11.sp) },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp)
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Button(
+                                    onClick = { shopLogoLauncher.launch("image/*") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("📱 Choisir logo depuis le téléphone", fontSize = 10.sp)
+                                }
 
                                 Spacer(modifier = Modifier.height(12.dp))
 

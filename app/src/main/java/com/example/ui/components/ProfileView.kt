@@ -145,19 +145,19 @@ fun ProfileView(
                                 else -> Color(0xFFF1F5F9)
                             }
                         )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (userProfile.kycStatus == "Certifié") {
-                            Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(12.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(10.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                         }
                         Text(
                             text = when (userProfile.kycStatus) {
                                 "Certifié" -> "Vendeur Certifié (KYC)"
                                 "En Attente" -> "KYC En Attente"
                                 "Banni" -> "Compte Banni"
-                                "Arnaqueur" -> "Bannière Fraude (Arnaqueur)"
+                                "Arnaqueur" -> "Bannière Fraude"
                                 else -> "Acheteur Standard"
                             },
                             color = when (userProfile.kycStatus) {
@@ -166,7 +166,7 @@ fun ProfileView(
                                 "Banni", "Arnaqueur" -> Color(0xFFB91C1C)
                                 else -> Color.Gray
                             },
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -820,6 +820,19 @@ fun ProfileView(
         var reelCaption by remember { mutableStateOf("") }
         var selectedMediaType by remember { mutableStateOf("Vidéo") } // "Vidéo" or "Photo"
         var videoDurationSec by remember { mutableFloatStateOf(35.0f) }
+        var selectedUri by remember { mutableStateOf<Uri?>(null) }
+        var selectedFileName by remember { mutableStateOf<String?>(null) }
+        
+        val reelPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                grantUriReadPermission(context, uri)
+                selectedUri = uri
+                selectedFileName = uri.lastPathSegment ?: if (selectedMediaType == "Vidéo") "video.mp4" else "photo.jpg"
+            }
+        }
+        
         val categoriesList by viewModel.categories.collectAsState()
         val selectableCategories = remember(categoriesList) {
             categoriesList.filter { it != "Tous" }
@@ -846,7 +859,7 @@ fun ProfileView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
-                            onClick = { selectedMediaType = "Vidéo" },
+                            onClick = { selectedMediaType = "Vidéo"; selectedUri = null; selectedFileName = null },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (selectedMediaType == "Vidéo") Color(0xFF10B981) else Color(0xFFF1F5F9),
                                 contentColor = if (selectedMediaType == "Vidéo") Color.White else Color.Black
@@ -858,7 +871,7 @@ fun ProfileView(
                         }
 
                         Button(
-                            onClick = { selectedMediaType = "Photo" },
+                            onClick = { selectedMediaType = "Photo"; selectedUri = null; selectedFileName = null },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (selectedMediaType == "Photo") Color(0xFF10B981) else Color(0xFFF1F5F9),
                                 contentColor = if (selectedMediaType == "Photo") Color.White else Color.Black
@@ -867,6 +880,37 @@ fun ProfileView(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("📷 Photo (≥ 5s vue)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Upload Box
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            val mime = if (selectedMediaType == "Vidéo") "video/*" else "image/*"
+                            reelPickerLauncher.launch(mime)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(28.dp))
+                            Column {
+                                Text(
+                                    text = selectedFileName ?: "Parcourir la galerie du téléphone 📱",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = if (selectedFileName != null) "Fichier chargé" else "Appuyez pour choisir une vidéo ou photo",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                            }
                         }
                     }
 
@@ -943,7 +987,8 @@ fun ProfileView(
                                 viewModel.publishReel(
                                     caption = reelCaption,
                                     category = selectedCategory,
-                                    mediaType = selectedMediaType
+                                    mediaType = selectedMediaType,
+                                    mediaUrl = selectedUri?.toString() ?: ""
                                 )
                                 Toast.makeText(context, "Publication culturelle effectuée avec succès !", Toast.LENGTH_LONG).show()
                                 showPublishReelDialog = false

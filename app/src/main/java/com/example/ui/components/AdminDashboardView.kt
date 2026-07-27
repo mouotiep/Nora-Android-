@@ -49,6 +49,7 @@ fun AdminDashboardView(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
+            grantUriReadPermission(context, uri)
             viewModel.updateAdminAd(
                 title = viewModel.adminAdTitle.value,
                 text = viewModel.adminAdText.value,
