@@ -146,15 +146,15 @@ fun NoraSplashScreen() {
             Surface(
                 modifier = Modifier
                     .size(130.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = Color.White,
+                shape = CircleShape,
+                color = Color.Transparent,
                 shadowElevation = 8.dp
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit
                 )
             }
 
@@ -282,15 +282,15 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                 ) {
                                     Surface(
                                         modifier = Modifier.size(42.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color.White,
+                                        shape = CircleShape,
+                                        color = Color.Transparent,
                                         shadowElevation = 3.dp
                                     ) {
                                         Image(
                                             painter = painterResource(id = R.drawable.nora_logo),
                                             contentDescription = "Logo Nora Cameroun",
                                             modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
+                                            contentScale = ContentScale.Fit
                                         )
                                     }
                                     Column {

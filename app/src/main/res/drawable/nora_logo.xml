@@ -1,19 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
+    android:width="128dp"
+    android:height="128dp"
     android:viewportWidth="128"
     android:viewportHeight="128">
+    
+    <!-- Background Circle - Deep Emerald Green -->
     <path
         android:fillColor="#0A6B38"
-        android:pathData="M0,0h128v128h-128z"/>
+        android:pathData="M64,6 C31.96,6 6,31.96 6,64 C6,96.04 31.96,122 64,122 C96.04,122 122,96.04 122,64 C122,31.96 96.04,6 64,6 Z"/>
+        
+    <!-- Outer Gold Ring Accent -->
     <path
         android:fillColor="#FFC107"
         android:pathData="M64,14 C36.38,14 14,36.38 14,64 C14,91.62 36.38,114 64,114 C91.62,114 114,91.62 114,64 C114,36.38 91.62,14 64,14 Z M64,108 C39.7,108 20,88.3 20,64 C20,39.7 39.7,20 64,20 C88.3,20 108,39.7 108,64 C108,88.3 88.3,108 64,108 Z"/>
+        
+    <!-- Red Cameroon Star at Top -->
     <path
         android:fillColor="#E53935"
         android:pathData="M64,26 L66.35,32.76 L73.51,32.91 L67.72,37.12 L69.88,44.09 L64,39.8 L58.12,44.09 L60.28,37.12 L54.49,32.91 L61.65,32.76 Z"/>
+        
+    <!-- Bold White Monogram 'N' -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M44,48 L53,48 L75,79 L75,48 L84,48 L84,88 L75,88 L53,57 L53,88 L44,88 Z"/>
+        
 </vector>

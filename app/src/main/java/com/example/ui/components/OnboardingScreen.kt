@@ -305,15 +305,15 @@ fun OnboardingScreen(
             // App Logo
             Surface(
                 modifier = Modifier.size(100.dp),
-                shape = RoundedCornerShape(22.dp),
-                color = Color.White,
+                shape = CircleShape,
+                color = Color.Transparent,
                 shadowElevation = 6.dp
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit
                 )
             }
 
