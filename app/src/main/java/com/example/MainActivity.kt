@@ -261,136 +261,176 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
         Box(modifier = Modifier.fillMaxSize()) {            Scaffold(
                 topBar = {
                     if (currentTabIndex != 3 || activeChatId == null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF007A5E))
-                                .statusBarsPadding()
-                        ) {
-                            // Gorgeous NORA CAMEROUN Header
-                            Row(
+                        if (currentTabIndex == 1) {
+                            // Immersive minimal top bar for Reels tab: Only show the notification bell
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .background(Color.Black)
+                                    .statusBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
                             ) {
-                                // Left: Square logo box centered on N emblem & dynamic app texts
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(42.dp),
-                                        shape = CircleShape,
-                                        color = Color.Transparent,
-                                        shadowElevation = 3.dp
+                                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                                    IconButton(
+                                        onClick = {
+                                            showNotificationDialog = true
+                                            viewModel.markNotificationsAsRead()
+                                        },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.2f))
                                     ) {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.nora_logo),
-                                            contentDescription = "Logo Nora Cameroun",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Fit
+                                        Icon(
+                                            imageVector = Icons.Default.Notifications,
+                                            contentDescription = "Notifications",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
-                                    Column {
-                                        Text(
-                                            text = "NORA",
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color.White,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Text(
-                                            text = "CAMEROUN",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            letterSpacing = 0.5.sp
-                                        )
-                                        Text(
-                                            text = "Achetez • Vendez • Gagnez",
-                                            fontSize = 8.sp,
-                                            color = Color(0xFFA7F3D0),
-                                            fontWeight = FontWeight.SemiBold
+                                    if (hasUnreadNotifications && notifications.isNotEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.Red)
+                                                .align(Alignment.TopEnd)
                                         )
                                     }
                                 }
-
-                                // Right: Admin/Buyer status capsule pill & notification bell
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF007A5E))
+                                    .statusBarsPadding()
+                            ) {
+                                // Gorgeous NORA CAMEROUN Header
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box {
-                                        Row(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(100.dp))
-                                                .background(Color(0x33FFFFFF)) // 20% white overlay
-                                                .border(
-                                                    width = 1.dp,
-                                                    color = Color(0xFF34D399).copy(alpha = 0.5f),
-                                                    shape = RoundedCornerShape(100.dp)
-                                                )
-                                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    // Left: Square logo box centered on N emblem & dynamic app texts
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.size(42.dp),
+                                            shape = CircleShape,
+                                            color = Color.Transparent,
+                                            shadowElevation = 3.dp
                                         ) {
-                                            // Circular icon placeholder inside capsule
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color.White.copy(alpha = 0.2f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = when (activeRole) {
-                                                        "Admin" -> Icons.Default.SupportAgent
-                                                        else -> Icons.Default.Person
-                                                    },
-                                                    contentDescription = null,
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                            }
+                                            Image(
+                                                painter = painterResource(id = R.drawable.nora_logo),
+                                                contentDescription = "Logo Nora Cameroun",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        }
+                                        Column {
                                             Text(
-                                                text = when (activeRole) {
-                                                    "Admin" -> "ADMINISTRATEUR"
-                                                    else -> "ACHETEUR"
-                                                },
-                                                color = Color.White,
-                                                fontSize = 10.sp,
+                                                text = "NORA",
+                                                fontSize = 15.sp,
                                                 fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White,
+                                                letterSpacing = 1.sp
+                                            )
+                                            Text(
+                                                text = "CAMEROUN",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
                                                 letterSpacing = 0.5.sp
+                                            )
+                                            Text(
+                                                text = "Achetez • Vendez • Gagnez",
+                                                fontSize = 8.sp,
+                                                color = Color(0xFFA7F3D0),
+                                                fontWeight = FontWeight.SemiBold
                                             )
                                         }
                                     }
 
-                                    // Notification Bell Icon with active badge indicator
-                                    Box {
-                                        IconButton(
-                                            onClick = {
-                                                showNotificationDialog = true
-                                                viewModel.markNotificationsAsRead()
-                                            },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Notifications,
-                                                contentDescription = "Notifications",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-                                        if (hasUnreadNotifications && notifications.isNotEmpty()) {
-                                            Box(
+                                    // Right: Admin/Buyer status capsule pill & notification bell
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Box {
+                                            Row(
                                                 modifier = Modifier
-                                                    .size(8.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color.Red)
-                                                    .align(Alignment.TopEnd)
-                                            )
+                                                    .clip(RoundedCornerShape(100.dp))
+                                                    .background(Color(0x33FFFFFF)) // 20% white overlay
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = Color(0xFF34D399).copy(alpha = 0.5f),
+                                                        shape = RoundedCornerShape(100.dp)
+                                                    )
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                // Circular icon placeholder inside capsule
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(18.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color.White.copy(alpha = 0.2f)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = when (activeRole) {
+                                                            "Admin" -> Icons.Default.SupportAgent
+                                                            else -> Icons.Default.Person
+                                                        },
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = when (activeRole) {
+                                                        "Admin" -> "ADMINISTRATEUR"
+                                                        else -> "ACHETEUR"
+                                                    },
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 0.5.sp
+                                                )
+                                            }
+                                        }
+
+                                        // Notification Bell Icon with active badge indicator
+                                        Box {
+                                            IconButton(
+                                                onClick = {
+                                                    showNotificationDialog = true
+                                                    viewModel.markNotificationsAsRead()
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Notifications,
+                                                    contentDescription = "Notifications",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                            if (hasUnreadNotifications && notifications.isNotEmpty()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color.Red)
+                                                        .align(Alignment.TopEnd)
+                                                )
+                                            }
                                         }
                                     }
                                 }

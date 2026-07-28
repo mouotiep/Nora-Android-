@@ -718,34 +718,7 @@ fun ProfileView(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedButton(
-                    onClick = {
-                        Toast.makeText(
-                            context,
-                            "🔍 Vérification des mises à jour... Vous possédez déjà la dernière version de Nora v1.2.0. Vos données sont sécurisées.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFF2563EB))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        tint = Color(0xFF2563EB),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Vérifier la Mise à Jour de l'App",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2563EB)
-                    )
-                }
             }
         }
 

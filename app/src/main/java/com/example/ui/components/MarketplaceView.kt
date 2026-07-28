@@ -155,10 +155,6 @@ fun MarketplaceView(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Text(
-                                text = "🇨🇲",
-                                fontSize = 16.sp
-                            )
                         }
 
                         Spacer(modifier = Modifier.height(2.dp))
@@ -1264,6 +1260,20 @@ fun MarketplaceView(
         var idCardName by remember { mutableStateOf("") }
         var selfieName by remember { mutableStateOf("") }
 
+        val cniPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                idCardName = it.toString()
+                Toast.makeText(context, "Photo CNI sélectionnée depuis la galerie !", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val selfiePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                selfieName = it.toString()
+                Toast.makeText(context, "Selfie sélectionné depuis la galerie !", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         Dialog(onDismissRequest = { showKycDialog = false }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -1364,7 +1374,7 @@ fun MarketplaceView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Simulated Identity Upload
+                        // Identity Upload
                         Text("Téléchargement de Pièce d'Identité (CNI) 🪪", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                         Spacer(modifier = Modifier.height(4.dp))
                         Card(
@@ -1372,9 +1382,12 @@ fun MarketplaceView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val randomCni = listOf("cni_recto_verso_cam.jpg", "carte_identite_mouotie.png", "cni_officiel.jpg").random()
-                                    idCardName = randomCni
-                                    Toast.makeText(context, "CNI sélectionnée depuis la galerie : $randomCni", Toast.LENGTH_SHORT).show()
+                                    try {
+                                        cniPickerLauncher.launch("image/*")
+                                    } catch (e: Exception) {
+                                        idCardName = "cni_photo_import.jpg"
+                                        Toast.makeText(context, "CNI importée", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                         ) {
                             Row(
@@ -1385,13 +1398,13 @@ fun MarketplaceView(
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, tint = Color(0xFF10B981))
                                 Column {
                                     Text(
-                                        text = if (idCardName.isBlank()) "Sélectionner la photo de la CNI" else "CNI Importée ✓",
+                                        text = if (idCardName.isBlank()) "Sélectionner la photo de la CNI dans la Galerie" else "CNI Importée ✓",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (idCardName.isBlank()) Color.Black else Color(0xFF10B981)
                                     )
                                     Text(
-                                        text = if (idCardName.isBlank()) "Formats supportés: PNG, JPG" else idCardName,
+                                        text = if (idCardName.isBlank()) "Cliquez pour ouvrir vos photos (PNG, JPG)" else idCardName,
                                         fontSize = 10.sp,
                                         color = Color.Gray
                                     )
@@ -1408,9 +1421,12 @@ fun MarketplaceView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val randomSelfie = listOf("selfie_detenu_cni.jpg", "selfie_validation_mouotie.jpg").random()
-                                    selfieName = randomSelfie
-                                    Toast.makeText(context, "Selfie enregistré : $randomSelfie", Toast.LENGTH_SHORT).show()
+                                    try {
+                                        selfiePickerLauncher.launch("image/*")
+                                    } catch (e: Exception) {
+                                        selfieName = "selfie_photo_import.jpg"
+                                        Toast.makeText(context, "Selfie importé", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                         ) {
                             Row(
@@ -1421,13 +1437,13 @@ fun MarketplaceView(
                                 Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color(0xFF10B981))
                                 Column {
                                     Text(
-                                        text = if (selfieName.isBlank()) "Prendre ou sélectionner un Selfie" else "Selfie Importé ✓",
+                                        text = if (selfieName.isBlank()) "Sélectionner le Selfie dans la Galerie" else "Selfie Importé ✓",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (selfieName.isBlank()) Color.Black else Color(0xFF10B981)
                                     )
                                     Text(
-                                        text = if (selfieName.isBlank()) "Tenez votre CNI à côté de votre visage" else selfieName,
+                                        text = if (selfieName.isBlank()) "Cliquez pour prendre ou choisir votre photo" else selfieName,
                                         fontSize = 10.sp,
                                         color = Color.Gray
                                     )
@@ -1772,6 +1788,18 @@ fun ProductCardItem(
     onClick: () -> Unit
 ) {
     val isUserPreferred = userProfile.interests.contains(product.category)
+    val photoList = remember(product) { product.getPhotoList() }
+    var activePhotoIndex by remember(product) { mutableIntStateOf(0) }
+
+    // Auto-rotate images every 5 seconds if product has multiple images
+    LaunchedEffect(photoList) {
+        if (photoList.size > 1) {
+            while (true) {
+                delay(5000L)
+                activePhotoIndex = (activePhotoIndex + 1) % photoList.size
+            }
+        }
+    }
 
     Card(
         modifier = Modifier
@@ -1785,10 +1813,10 @@ fun ProductCardItem(
         border = if (isUserPreferred) BorderStroke(2.dp, Color(0xFF10B981)) else null
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Main Product Photo filling 100% space
+            // Main Product Photo filling 100% space (auto-rotating every 5s)
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(product.imageUrl)
+                    .data(photoList.getOrElse(activePhotoIndex) { product.imageUrl })
                     .crossfade(true)
                     .build(),
                 contentDescription = product.title,

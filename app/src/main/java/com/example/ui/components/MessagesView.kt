@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Send
@@ -27,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +48,7 @@ fun MessagesView(
     viewModel: NoraViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val rawConversations by viewModel.conversations.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
@@ -225,6 +232,57 @@ fun MessagesView(
                             fontSize = 10.sp,
                             color = Color(0xFF10B981)
                         )
+                    }
+                }
+
+                if (activeRole == "Admin") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                        border = BorderStroke(1.dp, Color(0xFF93C5FD)),
+                        shape = RoundedCornerShape(0.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "👤 Client: ${currentChat.contactName}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E40AF)
+                                )
+                                Text(
+                                    text = "📱 WhatsApp: ${currentChat.userPhone.ifBlank { "+237 6xx xxx xxx" }}  |  ✉️ ${currentChat.userEmail.ifBlank { "client@nora.cm" }}",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF1E3A8A)
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    val phoneClean = currentChat.userPhone.replace(" ", "").replace("+", "")
+                                    val waUrl = if (phoneClean.isNotBlank()) "https://api.whatsapp.com/send?phone=$phoneClean" else "https://api.whatsapp.com/send?phone=237655924778"
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "WhatsApp: ${currentChat.userPhone}", Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("WhatsApp", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
 

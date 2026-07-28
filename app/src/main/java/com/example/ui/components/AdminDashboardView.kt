@@ -64,6 +64,7 @@ fun AdminDashboardView(
     val conversionRate by viewModel.conversionRate.collectAsState()
     val isBackingUp by viewModel.isBackingUp.collectAsState()
     val orders by viewModel.orders.collectAsState()
+    val registeredAccounts by viewModel.registeredAccounts.collectAsState()
     val totalUsersCount by viewModel.totalUsersCount.collectAsState()
     val activeUsersCount by viewModel.activeUsersCount.collectAsState()
     val totalDistributedNCoins by viewModel.totalDistributedNCoins.collectAsState()
@@ -79,6 +80,8 @@ fun AdminDashboardView(
 
     var showScanSimDialog by remember { mutableStateOf(false) }
     var scanOrderIdInput by remember { mutableStateOf("") }
+
+    var userSearchQuery by remember { mutableStateOf("") }
 
     var viewsRatioInput by remember { mutableStateOf(viewsRatio.toInt().toString()) }
     var conversionRateInput by remember { mutableStateOf(conversionRate.toInt().toString()) }
@@ -1322,6 +1325,157 @@ fun AdminDashboardView(
                     }
                 }
             }
+
+            // --- User Management Panel (Recherche, WhatsApp, Message, Bannir, Supprimer) ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Gestion des Utilisateurs", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Recherchez un utilisateur, contactez-le sur WhatsApp/App, bannissez ou supprimez son compte.", fontSize = 11.sp, color = Color.Gray)
+                    
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = userSearchQuery,
+                        onValueChange = { userSearchQuery = it },
+                        placeholder = { Text("Rechercher par nom, email ou WhatsApp...", fontSize = 12.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val allUsersList = remember(registeredAccounts) { registeredAccounts.values.map { it.profile } }
+                    val filteredUsers = remember(allUsersList, userSearchQuery) {
+                        if (userSearchQuery.isBlank()) allUsersList
+                        else allUsersList.filter {
+                            it.name.contains(userSearchQuery, ignoreCase = true) ||
+                            it.email.contains(userSearchQuery, ignoreCase = true) ||
+                            it.whatsappNumber.contains(userSearchQuery)
+                        }
+                    }
+
+                    if (filteredUsers.isEmpty()) {
+                        Text("Aucun utilisateur trouvé", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                    } else {
+                        filteredUsers.take(15).forEach { user ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(user.name.ifBlank { "Sans nom" }, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            Text(user.email, fontSize = 10.sp, color = Color.Gray)
+                                            if (user.whatsappNumber.isNotBlank()) {
+                                                Text("📱 ${user.whatsappNumber}", fontSize = 10.sp, color = Color(0xFF16A34A))
+                                            }
+                                        }
+
+                                        Text(
+                                            text = user.kycStatus,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = when (user.kycStatus) {
+                                                "Certifié" -> Color(0xFF10B981)
+                                                "Banni" -> Color.Red
+                                                "En Attente" -> Color(0xFFD97706)
+                                                else -> Color.Gray
+                                            }
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        // WhatsApp Action
+                                        Button(
+                                            onClick = {
+                                                val cleanNum = user.whatsappNumber.replace(" ", "").replace("+", "")
+                                                val waUrl = if (cleanNum.isNotBlank()) "https://api.whatsapp.com/send?phone=$cleanNum" else "https://api.whatsapp.com/send?phone=237655924778"
+                                                try {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Numéro: ${user.whatsappNumber}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("WhatsApp", fontSize = 10.sp, color = Color.White)
+                                        }
+
+                                        // In-App Chat Action
+                                        Button(
+                                            onClick = {
+                                                viewModel.adminContactUserWithDetails(user, "Bonjour ${user.name}, un administrateur vous contacte.")
+                                                Toast.makeText(context, "Chat ouvert avec ${user.name}", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("Écrire", fontSize = 10.sp, color = Color.White)
+                                        }
+
+                                        // Ban Action
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.banUser(user.id)
+                                                Toast.makeText(context, "${user.name} a été banni.", Toast.LENGTH_SHORT).show()
+                                            },
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(28.dp),
+                                            border = BorderStroke(1.dp, Color(0xFFD97706))
+                                        ) {
+                                            Text("Bannir", fontSize = 10.sp, color = Color(0xFFD97706))
+                                        }
+
+                                        // Delete Action
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.deleteUser(user.id)
+                                                Toast.makeText(context, "${user.name} a été supprimé.", Toast.LENGTH_SHORT).show()
+                                            },
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(28.dp),
+                                            border = BorderStroke(1.dp, Color.Red)
+                                        ) {
+                                            Text("Supprimer", fontSize = 10.sp, color = Color.Red)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // --- Shop KYC Applications ---
             Card(

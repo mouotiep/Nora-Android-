@@ -157,23 +157,23 @@ fun ReelsView(
             }
         }
 
-        // Beautiful absolute-positioned floating publish button
-        FloatingActionButton(
+        // Absolute-positioned floating publish button (1.5x smaller)
+        SmallFloatingActionButton(
             onClick = { showPublishReelDialog = true },
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 16.dp, end = 16.dp),
             containerColor = Color(0xFF10B981),
             contentColor = Color.White,
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(8.dp)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Publier", modifier = Modifier.size(18.dp))
-                Text("Publier", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = "Publier", modifier = Modifier.size(13.dp))
+                Text("Publier", fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1066,17 +1066,34 @@ fun ReelPageItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = reel.caption,
-                color = Color.White,
-                fontSize = 13.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
+            var isCaptionExpanded by remember(reel.id) { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = reel.caption,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    maxLines = if (isCaptionExpanded) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (reel.caption.length > 30) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isCaptionExpanded) " Voir moins" else " ...plus",
+                        color = Color(0xFF10B981),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { isCaptionExpanded = !isCaptionExpanded }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Views tag indicator & live watching timer badge
+            // Views tag indicator badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1098,69 +1115,49 @@ fun ReelPageItem(
                         fontWeight = FontWeight.Bold
                     )
                 }
-
-                val coinGains = (reel.viewsCount.toDouble() / viewsRatio.coerceAtLeast(1f)).coerceIn(0.0, 100000.0)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFFFFD700).copy(alpha = 0.2f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MonetizationOn,
-                        contentDescription = "N Coins",
-                        tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Text(
-                        text = "${coinGains.toLocaleString()} N-Coins",
-                        color = Color(0xFFFFD700),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
-                    )
-                }
             }
         }
 
-        // Overlay Right-Side Action Controls
+        // Overlay Right-Side Action Controls (1.5x smaller size = 30.dp)
+        var showOverflowMenu by remember { mutableStateOf(false) }
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 24.dp),
+                .padding(end = 12.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Like button
+            // Like button (30.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(
                     onClick = onLike,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.6f))
                 ) {
                     Icon(
                         imageVector = if (reel.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Like",
-                        tint = if (reel.isLiked) Color.Red else Color.White
+                        tint = if (reel.isLiked) Color.Red else Color.White,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 Text(
                     text = "${reel.likesCount}",
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // Comments button
+            // Comments button (30.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(
                     onClick = onCommentsClick,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.6f))
                         .testTag("comments_button")
@@ -1168,83 +1165,86 @@ fun ReelPageItem(
                     Icon(
                         imageVector = Icons.Default.ChatBubbleOutline,
                         contentDescription = "Commentaires",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 Text(
                     text = "${reel.comments.size}",
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // Share button
+            // Share button (30.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(
                     onClick = onShare,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.6f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "Share",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 Text(
                     text = "Partager",
                     color = Color.White,
-                    fontSize = 10.sp
+                    fontSize = 9.sp
                 )
             }
 
-            // Report button
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(
-                    onClick = onReport,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Report,
-                        contentDescription = "Report",
-                        tint = Color.White
-                    )
-                }
-                Text(
-                    text = "Signaler",
-                    color = Color.White,
-                    fontSize = 10.sp
-                )
-            }
-
-            // Supprimer button (for current user's owned Reels)
-            if (isMyReel) {
+            // (...) Overflow suspension menu grouping Signaler and Supprimer
+            Box {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(
-                        onClick = onDelete,
+                        onClick = { showOverflowMenu = true },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(30.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFEF4444).copy(alpha = 0.85f))
+                            .background(Color.Black.copy(alpha = 0.6f))
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Supprimer",
-                            tint = Color.White
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Plus d'options",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                     Text(
-                        text = "Supprimer",
+                        text = "Plus",
                         color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 9.sp
                     )
+                }
+
+                DropdownMenu(
+                    expanded = showOverflowMenu,
+                    onDismissRequest = { showOverflowMenu = false },
+                    modifier = Modifier.background(Color.White)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("🚩 Signaler la vidéo", fontSize = 12.sp, color = Color.Red) },
+                        onClick = {
+                            showOverflowMenu = false
+                            onReport()
+                        }
+                    )
+                    if (isMyReel) {
+                        DropdownMenuItem(
+                            text = { Text("🗑️ Supprimer la vidéo", fontSize = 12.sp, color = Color.Red, fontWeight = FontWeight.Bold) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onDelete()
+                            }
+                        )
+                    }
                 }
             }
         }

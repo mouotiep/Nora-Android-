@@ -148,6 +148,7 @@ class NoraRepositoryImpl(
         _products.value = updated
         scope.launch {
             try { apiService.createProduct(product) } catch (_: Exception) {}
+            try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
         }
     }
 
@@ -156,6 +157,7 @@ class NoraRepositoryImpl(
         _products.value = updated
         scope.launch {
             try { apiService.updateProduct(product.id, product) } catch (_: Exception) {}
+            try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
         }
     }
 
@@ -163,6 +165,7 @@ class NoraRepositoryImpl(
         _products.value = _products.value.filter { it.id != productId }
         scope.launch {
             try { apiService.deleteProduct(productId) } catch (_: Exception) {}
+            try { com.example.data.firebase.FirebaseManager.deleteProductFromFirestore(productId) } catch (_: Exception) {}
         }
     }
 
@@ -171,6 +174,7 @@ class NoraRepositoryImpl(
         _reels.value = updated
         scope.launch {
             try { apiService.createReel(reel) } catch (_: Exception) {}
+            try { com.example.data.firebase.FirebaseManager.saveReelToFirestore(reel) } catch (_: Exception) {}
         }
     }
 

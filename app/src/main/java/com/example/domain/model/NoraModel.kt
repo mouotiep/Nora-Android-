@@ -75,7 +75,10 @@ data class Conversation(
     val contactName: String,
     val lastMessage: String,
     val lastTime: String,
-    val messages: List<Message>
+    val messages: List<Message>,
+    val userPhone: String = "",
+    val userEmail: String = "",
+    val userId: String = ""
 )
 
 data class Transaction(
@@ -130,7 +133,9 @@ data class NoraOrder(
     val coinsCost: Double,
     val status: String,
     val date: String,
-    val commissionCashed: Boolean = false
+    val commissionCashed: Boolean = false,
+    val buyerEmail: String = "",
+    val productImageUrl: String = ""
 )
 
 data class Account(

@@ -52,16 +52,19 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     private val _categories = MutableStateFlow(
         mutableListOf(
             "Tous",
+            "Électronique & High-Tech",
+            "Santé & Beauté",
             "Mode & Vêtements",
-            "Accessoires & Bijou",
-            "Alimentation",
-            "Objets d'Art",
-            "Décoration d'Intérieur",
-            "Sculpture",
-            "Musique & Instruments",
-            "Littérature Africaine",
-            "Soin & Cosmétique Bio",
-            "Poterie"
+            "Maison & Décoration",
+            "Véhicules & Auto",
+            "Agroalimentaire & Bio",
+            "Services & Emploi",
+            "Immobilier",
+            "Bijoux & Accessoires",
+            "Sports & Loisirs",
+            "Bébés & Enfants",
+            "Objets d'Art & Artisanat",
+            "Musique & Culture"
         )
     )
     val categories: StateFlow<List<String>> = _categories.asStateFlow()
@@ -499,7 +502,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 "Mouotie1@,*",
                 UserProfile(
                     id = "admin-mouotiep",
-                    name = "Admin Mouotie",
+                    name = "admin Nora",
                     whatsappNumber = "+237 655 924 778",
                     isLoggedIn = false,
                     onboardingCompleted = true,
@@ -551,7 +554,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             _userProfile.update {
                 it.copy(
                     id = "admin-mouotiep",
-                    name = "Admin Mouotie",
+                    name = "admin Nora",
                     whatsappNumber = "+237 655 924 778",
                     isLoggedIn = true,
                     onboardingCompleted = true,
@@ -759,30 +762,46 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     // Admin KYC approvals / actions
     fun approveKyc(userId: String) {
         // Find application
-        val app = _kycApplications.value.find { it.id == userId } ?: return
+        val app = _kycApplications.value.find { it.id == userId }
         
-        // Update applications
+        // Update applications list
         _kycApplications.update { list ->
             list.filter { it.id != userId }
         }
 
-        // If it's the active user
-        if (_userProfile.value.id == userId) {
+        // Update active user profile if matching
+        if (_userProfile.value.id == userId || app?.id == _userProfile.value.id) {
             _userProfile.update {
                 it.copy(kycStatus = "Certifié", hasShop = true)
             }
+            if (_activeRole.value == "Acheteur") {
+                _activeRole.value = "Créateur"
+            }
         }
 
-        // Add the shop products/shop verification in the marketplace
+        // Update stored account if matching
+        _registeredAccounts.value.values.find { it.profile.id == userId }?.profile?.let { prof ->
+            val updatedProfile = prof.copy(kycStatus = "Certifié", hasShop = true)
+            _registeredAccounts.update { map ->
+                map.toMutableMap().apply {
+                    put(prof.email, Account(prof.email, map[prof.email]?.password ?: "", updatedProfile))
+                }
+            }
+        }
+
+        val shopName = app?.shopName ?: "Boutique"
+        // Update products for this seller/shop
         _products.update { list ->
             list.map { prod ->
-                if (prod.shopName == app.shopName) {
+                if (prod.shopName == shopName) {
                     prod.copy(isCertified = true, isScammer = false, isBanned = false)
                 } else {
                     prod
                 }
             }
         }
+
+        postNotification("🎉 Votre demande KYC a été validée ! Vous êtes maintenant Vendeur Certifié sur NorA.")
     }
 
     fun sanctionKyc(userId: String, action: String) {
@@ -835,8 +854,9 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _selectedCategory.value = category
     }
 
-    // Category creation (Admins / Sellers can call)
-    fun createCategory(name: String) {
+    // Category creation (Only Admin can create categories)
+    fun createCategory(name: String): Boolean {
+        if (_activeRole.value != "Admin") return false
         val trimmed = name.trim()
         if (trimmed.isNotEmpty() && !_categories.value.contains(trimmed)) {
             _categories.update {
@@ -844,7 +864,9 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 newList.add(trimmed)
                 newList
             }
+            return true
         }
+        return false
     }
 
     // Video Likes
@@ -1254,10 +1276,15 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             payInNCoins = payInNCoins,
             coinsCost = costInCoins,
             status = "En attente de livraison",
-            date = "Aujourd'hui"
+            date = "Aujourd'hui",
+            buyerEmail = activeUser.email,
+            productImageUrl = product.imageUrl
         )
 
         _orders.update { it + newOrder }
+
+        // Alert administrator via Push Notification with full order details
+        postNotification("🛒 Nouvelle Commande #${newOrder.id} ! Acheteur: ${activeUser.name} (${activeUser.whatsappNumber}) | Produit: ${product.title} | Total: ${if (payInNCoins) "$costInCoins Coins" else "${product.price} FCFA"}")
 
         // Alert the administrator about this order & open a conversation
         _conversations.update { list ->
@@ -1406,13 +1433,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         _lastIncomingMessageConvId.value = conversationId
 
-        // Post a push notification about the incoming message
-        val senderLabel = if (_activeRole.value == "Admin") {
-            "NorA Support"
-        } else {
-            _userProfile.value.name.ifBlank { "Utilisateur" }
+        // Post a push notification about the incoming message:
+        // Only trigger push notification when sent BY Admin to user
+        if (_activeRole.value == "Admin") {
+            postNotification("Message de NorA Support : ${text.trim()}")
         }
-        postNotification("Message de $senderLabel : ${text.trim()}")
     }
 
     fun adminContactUser(contactName: String, initialMessage: String) {
@@ -1454,6 +1479,86 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _lastIncomingMessageConvId.value = convId
         _activeChatId.value = convId
         _currentTabIndex.value = 2 // Switch to Chat tab
+    }
+
+    fun adminContactUserWithDetails(user: UserProfile, initialMessage: String) {
+        val cleanName = user.name.trim().ifBlank { "Utilisateur" }
+        val existing = _conversations.value.find { it.userId == user.id || it.contactName.equals(cleanName, ignoreCase = true) }
+        val convId = existing?.id ?: "conv-user-${System.currentTimeMillis()}"
+        if (existing == null) {
+            val newConv = Conversation(
+                id = convId,
+                contactName = cleanName,
+                lastMessage = initialMessage,
+                lastTime = "À l'instant",
+                messages = listOf(
+                    Message(
+                        sender = "admin",
+                        text = initialMessage,
+                        time = "À l'instant"
+                    )
+                ),
+                userPhone = user.whatsappNumber,
+                userEmail = user.email,
+                userId = user.id
+            )
+            _conversations.update { it + newConv }
+        } else {
+            val updatedMessages = ArrayList(existing.messages)
+            updatedMessages.add(Message("admin", initialMessage, "À l'instant"))
+            _conversations.update { list ->
+                list.map { conv ->
+                    if (conv.id == existing.id) {
+                        conv.copy(
+                            lastMessage = initialMessage,
+                            lastTime = "À l'instant",
+                            messages = updatedMessages,
+                            userPhone = user.whatsappNumber.ifBlank { conv.userPhone },
+                            userEmail = user.email.ifBlank { conv.userEmail },
+                            userId = user.id.ifBlank { conv.userId }
+                        )
+                    } else {
+                        conv
+                    }
+                }
+            }
+        }
+        _lastIncomingMessageConvId.value = convId
+        _activeChatId.value = convId
+        _currentTabIndex.value = 2
+    }
+
+    fun deleteUser(userId: String) {
+        _registeredAccounts.update { map ->
+            map.filterValues { it.profile.id != userId }
+        }
+        _kycApplications.update { list ->
+            list.filter { it.id != userId }
+        }
+        postNotification("Utilisateur supprimé de la base de données.")
+    }
+
+    fun banUser(userId: String) {
+        _registeredAccounts.update { map ->
+            map.mapValues { entry ->
+                if (entry.value.profile.id == userId) {
+                    entry.value.copy(
+                        profile = entry.value.profile.copy(kycStatus = "Banni")
+                    )
+                } else {
+                    entry.value
+                }
+            }
+        }
+        _kycApplications.update { list ->
+            list.map { app ->
+                if (app.id == userId) app.copy(kycStatus = "Banni") else app
+            }
+        }
+        if (_userProfile.value.id == userId) {
+            _userProfile.update { it.copy(kycStatus = "Banni") }
+        }
+        postNotification("Utilisateur banni de l'application.")
     }
 
     // Update profile
