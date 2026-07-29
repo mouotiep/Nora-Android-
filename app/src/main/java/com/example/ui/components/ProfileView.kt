@@ -40,6 +40,13 @@ fun ProfileView(
     val walletNCoins by viewModel.walletNCoins.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
     val orders by viewModel.orders.collectAsState()
+    val shops by viewModel.shops.collectAsState()
+    val reels by viewModel.reels.collectAsState()
+    val productsList by viewModel.products.collectAsState()
+
+    val activeRole by viewModel.activeRole.collectAsState()
+    val isSeller = userProfile.kycStatus == "Certifié" || activeRole == "Créateur"
+    val hasShop = userProfile.shopName.isNotBlank() && shops.any { it.name.equals(userProfile.shopName, ignoreCase = true) || it.id == userProfile.shopName }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -172,6 +179,43 @@ fun ProfileView(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Stats row: Followers count, Reels, Products
+                val userShop = shops.find { it.id == userProfile.shopName || it.name == userProfile.shopName }
+                val myFollowersCount = userShop?.followersCount ?: userProfile.followersCount
+                val myReelsCount = reels.count { it.creatorName == userProfile.name || it.creatorName == userProfile.shopName }
+                val myProductsCount = productsList.count { it.shopName == userProfile.shopName || it.shopId == userProfile.shopName }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF8FAFC))
+                        .padding(vertical = 10.dp, horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$myFollowersCount", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF10B981))
+                        Text("Abonnés 👥", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.Gray)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE2E8F0)))
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$myReelsCount", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF10B981))
+                        Text("Vidéos 🎥", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.Gray)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE2E8F0)))
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$myProductsCount", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF10B981))
+                        Text("Produits 🛍️", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.Gray)
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,16 +228,30 @@ fun ProfileView(
                         Text("Modifier Profil", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    if (userProfile.kycStatus == "Certifié") {
+                    if (isSeller) {
                         Button(
-                            onClick = { showShopManagerDialog = true },
+                            onClick = {
+                                if (userProfile.shopName.isBlank()) {
+                                    showEditShopDialog = true
+                                } else {
+                                    showShopManagerDialog = true
+                                }
+                            },
                             modifier = Modifier.weight(1f).testTag("manage_shop_button"),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981), contentColor = Color.White)
                         ) {
-                            Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = if (userProfile.shopName.isBlank()) Icons.Default.AddBusiness else Icons.Default.Store,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Gérer Boutique", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (userProfile.shopName.isBlank()) "Créer Boutique" else "Gérer Boutique",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -219,6 +277,167 @@ fun ProfileView(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Se déconnecter", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // --- Espace Vendeur & Gestion de Boutique ---
+        if (isSeller) {
+            val userShopItem = shops.find { it.name.equals(userProfile.shopName, ignoreCase = true) || it.id == userProfile.shopName }
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFECFDF5)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (userProfile.shopPic.isNotBlank()) {
+                                    coil.compose.AsyncImage(
+                                        model = userProfile.shopPic,
+                                        contentDescription = "Logo Boutique",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Storefront,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = userProfile.shopName.ifBlank { "Votre Boutique NorA" },
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF111827)
+                                    )
+                                    Icon(Icons.Default.Verified, contentDescription = "Certifié", tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
+                                }
+                                Text(
+                                    text = userProfile.shopLocation.ifBlank { "Douala, Cameroun" } + " • Vendeur Vérifié (KYC)",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = { showEditShopDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Modifier la boutique", tint = Color(0xFF007A5E))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (userProfile.shopName.isBlank()) {
+                        // Unconfigured shop notice
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                            border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "🚀 Votre espace Vendeur est débloqué !",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF166534)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Créez votre boutique officielle en renseignent son nom et sa description pour commencer à ajouter vos articles et vos vidéos Reels.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF15803D),
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = { showEditShopDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.AddBusiness, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Créer ma Boutique Maintenant", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    } else {
+                        // Managed shop dashboard controls
+                        Text(
+                            text = "Gestion & Outils Vendeur 🛠️",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { showShopManagerDialog = true },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                            ) {
+                                Icon(Icons.Default.Dashboard, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Gérer Ventes & Articles", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { showPublishReelDialog = true },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                            ) {
+                                Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Publier Reel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                val targetShopId = userShopItem?.id ?: userProfile.shopName
+                                viewModel.selectShopAndNavigate(targetShopId)
+                                viewModel.setCurrentTabIndex(1) // Navigate to Shops tab
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF007A5E))
+                        ) {
+                            Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF007A5E), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Aperçu de ma Boutique Publique ➔", fontSize = 12.sp, color = Color(0xFF007A5E), fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
@@ -413,7 +632,7 @@ fun ProfileView(
                 
                 if (followedCreators.isEmpty() && followedShops.isEmpty()) {
                     Text(
-                        text = "Vous ne suivez aucun créateur ni boutique pour le moment. Suivez-en dans les onglets Marché et Reels !",
+                        text = "Vous ne suivez aucun créateur ni boutique pour le moment. Suivez-en dans les onglets Produits, Boutiques et Reels !",
                         fontSize = 11.sp,
                         color = Color.Gray
                     )
@@ -466,15 +685,16 @@ fun ProfileView(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             followedShops.forEach { shopId ->
-                                val shopName = products.find { it.shopId == shopId }?.shopName ?: "Boutique Nora"
+                                val realShop = shops.find { it.id == shopId }
+                                val shopName = realShop?.name ?: productsList.find { it.shopId == shopId }?.shopName ?: "Boutique Nora"
+                                val followers = realShop?.followersCount ?: 142
                                 Card(
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
                                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                                     modifier = Modifier
-                                        .width(130.dp)
+                                        .width(135.dp)
                                         .clickable {
-                                            viewModel.toggleFollowShop(shopId)
-                                            Toast.makeText(context, "Boutique retirée des favoris", Toast.LENGTH_SHORT).show()
+                                            viewModel.selectShopAndNavigate(shopId)
                                         }
                                 ) {
                                     Column(
@@ -490,10 +710,16 @@ fun ProfileView(
                                         ) {
                                             Icon(Icons.Default.Storefront, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
                                         }
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(shopName, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text("👥 $followers abonnés", fontSize = 9.sp, color = Color.Gray)
                                         Spacer(modifier = Modifier.height(2.dp))
-                                        Text("Retirer", fontSize = 8.sp, color = Color.Red, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = "Visiter la boutique ➔",
+                                            fontSize = 8.5.sp,
+                                            color = Color(0xFF10B981),
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
@@ -792,6 +1018,16 @@ fun ProfileView(
         var tempShopName by remember { mutableStateOf(userProfile.shopName) }
         var tempShopDesc by remember { mutableStateOf(userProfile.shopDescription) }
         var tempShopLoc by remember { mutableStateOf(userProfile.shopLocation) }
+        var tempShopPic by remember { mutableStateOf(userProfile.shopPic) }
+
+        val shopLogoLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            uri?.let {
+                grantUriReadPermission(context, it)
+                tempShopPic = it.toString()
+            }
+        }
 
         Dialog(onDismissRequest = { showEditShopDialog = false }) {
             Surface(
@@ -799,15 +1035,51 @@ fun ProfileView(
                 color = Color.White,
                 modifier = Modifier.fillMaxWidth().padding(16.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Modifier votre Boutique", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (userProfile.shopName.isBlank()) "Créer votre Boutique NorA 🏪" else "Modifier votre Boutique 🏪",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Shop Logo Avatar Picker
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFECFDF5))
+                            .border(2.dp, Color(0xFF10B981), CircleShape)
+                            .clickable { shopLogoLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (tempShopPic.isNotBlank()) {
+                            coil.compose.AsyncImage(
+                                model = tempShopPic,
+                                contentDescription = "Logo Boutique",
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.AddAPhoto,
+                                contentDescription = "Ajouter Logo",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    Text("Ajouter / Changer le Logo 📸", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(
                         value = tempShopName,
                         onValueChange = { tempShopName = it },
-                        label = { Text("Nom de la Boutique") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Nom de la Boutique *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -815,8 +1087,9 @@ fun ProfileView(
                     OutlinedTextField(
                         value = tempShopDesc,
                         onValueChange = { tempShopDesc = it },
-                        label = { Text("Description") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Description des produits & spécialités") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -824,8 +1097,9 @@ fun ProfileView(
                     OutlinedTextField(
                         value = tempShopLoc,
                         onValueChange = { tempShopLoc = it },
-                        label = { Text("Localisation / Ville") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Ville / Quartier (ex: Douala Akwa)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -836,15 +1110,17 @@ fun ProfileView(
                         Button(
                             onClick = {
                                 if (tempShopName.isBlank()) {
-                                    Toast.makeText(context, "Nom requis", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Le nom de la boutique est obligatoire !", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
-                                viewModel.updateShopProfile(tempShopName, tempShopDesc, tempShopLoc, "")
-                                Toast.makeText(context, "Boutique mise à jour !", Toast.LENGTH_SHORT).show()
+                                viewModel.updateShopProfile(tempShopName, tempShopDesc, tempShopLoc, tempShopPic)
+                                Toast.makeText(context, "🎉 Votre boutique ${tempShopName} est enregistrée !", Toast.LENGTH_LONG).show()
                                 showEditShopDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                         ) {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text("Enregistrer")
                         }
                     }

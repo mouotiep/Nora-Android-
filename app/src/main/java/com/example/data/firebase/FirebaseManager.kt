@@ -58,6 +58,24 @@ object FirebaseManager {
         }
     }
 
+    fun initFirebase(context: Context) {
+        try {
+            if (FirebaseApp.getApps(context).isEmpty()) {
+                val options = com.google.firebase.FirebaseOptions.Builder()
+                    .setApplicationId("1:955006691943:android:noracameroun")
+                    .setProjectId("nora-cameroun-app")
+                    .setApiKey("AIzaSyNoraCamerounOnlineDatabaseKey2026")
+                    .setStorageBucket("nora-cameroun-app.appspot.com")
+                    .setDatabaseUrl("https://nora-cameroun-app-default-rtdb.firebaseio.com")
+                    .build()
+                FirebaseApp.initializeApp(context, options)
+                Log.d(TAG, "Firebase initialisé programmatiquement avec succès.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Init Firebase Error: ${e.message}")
+        }
+    }
+
     // --- AUTHENTICATION ---
 
     suspend fun signUpWithEmail(
@@ -224,6 +242,128 @@ object FirebaseManager {
                         doc.data?.let { parseReel(doc.id, it) }
                     }
                     trySend(list)
+                }
+            }
+
+        awaitClose { listener.remove() }
+    }
+
+    // --- FIRESTORE CONVERSATIONS & CHAT MESSAGES ---
+
+    suspend fun saveMessageToFirestore(
+        conversationId: String,
+        contactName: String,
+        message: Message,
+        userPhone: String = "",
+        userEmail: String = ""
+    ): Boolean {
+        val db = firestore ?: return false
+        return try {
+            val convRef = db.collection("conversations").document(conversationId)
+
+            val convData = mapOf(
+                "id" to conversationId,
+                "contactName" to contactName,
+                "lastMessage" to message.text,
+                "lastTime" to message.time,
+                "userPhone" to userPhone,
+                "userEmail" to userEmail,
+                "updatedAt" to System.currentTimeMillis()
+            )
+            convRef.set(convData, com.google.firebase.firestore.SetOptions.merge()).await()
+
+            val msgId = UUID.randomUUID().toString()
+            val msgData = mapOf(
+                "id" to msgId,
+                "sender" to message.sender,
+                "text" to message.text,
+                "time" to message.time,
+                "replyToText" to message.replyToText,
+                "replyToSender" to message.replyToSender,
+                "timestamp" to System.currentTimeMillis()
+            )
+            convRef.collection("messages").document(msgId).set(msgData).await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "saveMessage Error: ${e.message}")
+            false
+        }
+    }
+
+    fun getConversationsRealtime(): Flow<List<Conversation>> = callbackFlow {
+        val db = firestore
+        if (db == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+
+        val listener = db.collection("conversations")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e(TAG, "Conversations listener error: ${e.message}")
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val convDocs = snapshot.documents
+                    if (convDocs.isEmpty()) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    val conversationsList = mutableListOf<Conversation>()
+                    var loadedCount = 0
+
+                    for (doc in convDocs) {
+                        val map = doc.data ?: continue
+                        val id = doc.id
+                        val contactName = (map["contactName"] as? String) ?: "Utilisateur NorA"
+                        val lastMessage = (map["lastMessage"] as? String) ?: ""
+                        val lastTime = (map["lastTime"] as? String) ?: ""
+                        val userPhone = (map["userPhone"] as? String) ?: ""
+                        val userEmail = (map["userEmail"] as? String) ?: ""
+
+                        doc.reference.collection("messages")
+                            .orderBy("timestamp", Query.Direction.ASCENDING)
+                            .get()
+                            .addOnSuccessListener { msgSnap ->
+                                val messages = msgSnap.documents.mapNotNull { mDoc ->
+                                    val mData = mDoc.data ?: return@mapNotNull null
+                                    Message(
+                                        sender = (mData["sender"] as? String) ?: "moi",
+                                        text = (mData["text"] as? String) ?: "",
+                                        time = (mData["time"] as? String) ?: "",
+                                        replyToText = (mData["replyToText"] as? String) ?: "",
+                                        replyToSender = (mData["replyToSender"] as? String) ?: ""
+                                    )
+                                }
+                                synchronized(conversationsList) {
+                                    conversationsList.add(
+                                        Conversation(
+                                            id = id,
+                                            contactName = contactName,
+                                            lastMessage = lastMessage,
+                                            lastTime = lastTime,
+                                            userPhone = userPhone,
+                                            userEmail = userEmail,
+                                            messages = messages
+                                        )
+                                    )
+                                    loadedCount++
+                                    if (loadedCount == convDocs.size) {
+                                        trySend(conversationsList.toList())
+                                    }
+                                }
+                            }
+                            .addOnFailureListener {
+                                synchronized(conversationsList) {
+                                    loadedCount++
+                                    if (loadedCount == convDocs.size) {
+                                        trySend(conversationsList.toList())
+                                    }
+                                }
+                            }
+                    }
                 }
             }
 

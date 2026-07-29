@@ -55,6 +55,8 @@ fun ReelsView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val reels by viewModel.reels.collectAsState()
+    val shops by viewModel.shops.collectAsState()
+    val products by viewModel.products.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val viewsRatio by viewModel.viewsRatio.collectAsState()
     val pagerState = rememberPagerState(pageCount = { reels.size })
@@ -134,6 +136,15 @@ fun ReelsView(
                     watchSeconds = if (isCurrent) watchSeconds else 0,
                     requiredWatchSeconds = targetWatchTime,
                     isViewCounted = if (isCurrent) isViewCountedForCurrentPage else false,
+                    followersCount = run {
+                        val shop = shops.find { it.name.equals(reel.creatorName, ignoreCase = true) || it.id == reel.creatorName }
+                        shop?.followersCount ?: 210
+                    },
+                    onCreatorClick = {
+                        val shop = shops.find { it.name.equals(reel.creatorName, ignoreCase = true) || it.id == reel.creatorName }
+                        val shopId = shop?.id ?: products.find { it.shopName.equals(reel.creatorName, ignoreCase = true) }?.shopId ?: "shop-noun"
+                        viewModel.selectShopAndNavigate(shopId)
+                    },
                     onLike = { viewModel.toggleLike(reel.id) },
                     onFollow = { viewModel.toggleFollow(reel.id) },
                     onCommentsClick = { showCommentsReelId = reel.id },
@@ -876,6 +887,8 @@ fun ReelPageItem(
     watchSeconds: Int = 0,
     requiredWatchSeconds: Int = 25,
     isViewCounted: Boolean = false,
+    followersCount: Int = 180,
+    onCreatorClick: (() -> Unit)? = null,
     onLike: () -> Unit,
     onFollow: () -> Unit,
     onCommentsClick: () -> Unit,
@@ -1025,27 +1038,42 @@ fun ReelPageItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.clickable { onCreatorClick?.invoke() }
                 ) {
-                    Text(
-                        text = reel.creatorName.take(2).uppercase(),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = reel.creatorName.take(2).uppercase(),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "@${reel.creatorName}",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                        Text(
+                            text = "👥 $followersCount abonnés",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 10.sp
+                        )
+                    }
                 }
 
-                Text(
-                    text = "@${reel.creatorName}",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
+                Spacer(modifier = Modifier.width(2.dp))
 
                 // Follow toggle pill
                 Box(

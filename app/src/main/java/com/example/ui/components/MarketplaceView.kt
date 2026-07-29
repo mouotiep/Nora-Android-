@@ -440,6 +440,7 @@ fun MarketplaceView(
                         userProfile = userProfile,
                         isFavorite = favoriteProductIds.contains(item.id),
                         onFavoriteToggle = { viewModel.toggleFavoriteProduct(item.id) },
+                        onShopClick = { viewModel.selectShopAndNavigate(item.shopId) },
                         onClick = { selectedProductDetails = item }
                     )
                 }
@@ -692,9 +693,16 @@ fun MarketplaceView(
                             Text(prod.shopName.take(2).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    selectedProductDetails = null
+                                    viewModel.selectShopAndNavigate(prod.shopId)
+                                }
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(prod.shopName, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(prod.shopName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF007A5E))
                                 if (prod.isCertified) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Row(
@@ -710,7 +718,7 @@ fun MarketplaceView(
                                     }
                                 }
                             }
-                            Text("Artisan Vérifié", fontSize = 10.sp, color = Color.Gray)
+                            Text("Voir la boutique ➔", fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.SemiBold)
                         }
 
                         // Follow Shop Button
@@ -1785,6 +1793,7 @@ fun ProductCardItem(
     userProfile: com.example.UserProfile,
     isFavorite: Boolean,
     onFavoriteToggle: () -> Unit,
+    onShopClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val isUserPreferred = userProfile.interests.contains(product.category)
@@ -1905,17 +1914,27 @@ fun ProductCardItem(
                     .fillMaxWidth()
                     .padding(10.dp)
             ) {
-                // Nom de la boutique (+ badge certifié si présent)
+                // Nom de la boutique (+ icon storefront)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .clickable { onShopClick?.invoke() ?: onClick() }
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = Color(0xFF34D399),
+                        modifier = Modifier.size(11.dp)
+                    )
                     Text(
                         text = product.shopName,
-                        fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Medium,
+                        fontSize = 9.5.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

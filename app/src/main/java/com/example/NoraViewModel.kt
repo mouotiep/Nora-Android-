@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.domain.model.*
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.util.UUID
 
 class NoraViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,6 +35,137 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     // Selected screen/tab index state
     private val _currentTabIndex = MutableStateFlow(0)
     val currentTabIndex: StateFlow<Int> = _currentTabIndex.asStateFlow()
+
+    // Selected Shop for detailed viewing
+    private val _selectedShopId = MutableStateFlow<String?>(null)
+    val selectedShopId: StateFlow<String?> = _selectedShopId.asStateFlow()
+
+    fun selectShop(shopId: String?) {
+        _selectedShopId.value = shopId
+    }
+
+    fun selectShopAndNavigate(shopId: String) {
+        _selectedShopId.value = shopId
+        _currentTabIndex.value = 1 // Switch to Boutiques tab
+    }
+
+    private val _shops = MutableStateFlow<List<ShopItem>>(
+        listOf(
+            ShopItem(
+                id = "shop-noun",
+                name = "Les Merveilles du Noun",
+                description = "Pagnes traditionnels Bamoun, étoffes royales, motifs Ndop et artisanat d'exception issus du Royaume Bamoun à Foumban.",
+                category = "Mode & Vêtements",
+                location = "Foumban",
+                logoUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800",
+                phone = "+237 699 112 233",
+                isCertified = true,
+                rating = 4.9f,
+                reviewCount = 34,
+                followersCount = 320
+            ),
+            ShopItem(
+                id = "shop-sawa",
+                name = "Sawa Elegance",
+                description = "Robes traditionnelles Kaba Ndondo en soie légère, tenues côtières authentiques et créations élégantes de Douala.",
+                category = "Mode & Vêtements",
+                location = "Douala",
+                logoUrl = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=800",
+                phone = "+237 677 889 900",
+                isCertified = true,
+                rating = 4.8f,
+                reviewCount = 28,
+                followersCount = 210
+            ),
+            ShopItem(
+                id = "shop-penja",
+                name = "Saveurs du Cameroun",
+                description = "Spécialiste du Poivre blanc de Penja certifié IGP, épices rares et arômes uniques du terroir camerounais.",
+                category = "Alimentation",
+                location = "Penja",
+                logoUrl = "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800",
+                phone = "+237 655 443 322",
+                isCertified = true,
+                rating = 4.95f,
+                reviewCount = 52,
+                followersCount = 480
+            ),
+            ShopItem(
+                id = "shop-nord",
+                name = "Artisans du Nord",
+                description = "Créations en perles de bois précieux d'ébène, maroquinerie faite main et artisanat authentique du Grand Nord Cameroun.",
+                category = "Accessoires & Bijou",
+                location = "Maroua",
+                logoUrl = "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=800",
+                phone = "+237 690 123 456",
+                isCertified = false,
+                rating = 4.5f,
+                reviewCount = 15,
+                followersCount = 95
+            ),
+            ShopItem(
+                id = "shop-sawa-eco",
+                name = "Eco-Design Sawa",
+                description = "Sacs écoresponsables en raphia tressé, vannerie d'art et accessoires de mode naturels faits à la main à Yaoundé.",
+                category = "Accessoires & Bijou",
+                location = "Yaoundé",
+                logoUrl = "https://images.unsplash.com/photo-1566150905458-1bf1fc15a7a0?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=800",
+                phone = "+237 680 987 654",
+                isCertified = true,
+                rating = 4.7f,
+                reviewCount = 22,
+                followersCount = 175
+            ),
+            ShopItem(
+                id = "shop-delices",
+                name = "Délices Verts",
+                description = "Confitures traditionnelles cuites au feu de bois, mangue-passion, confitures d'ananas et sirops naturels de Bafoussam.",
+                category = "Alimentation",
+                location = "Bafoussam",
+                logoUrl = "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=800",
+                phone = "+237 671 223 344",
+                isCertified = false,
+                rating = 4.6f,
+                reviewCount = 19,
+                followersCount = 130
+            ),
+            ShopItem(
+                id = "user-kyc-1",
+                name = "L'Artisanal Douala",
+                description = "Sculptures en bois d'ébène, masques traditionnels et objets d'art précieux façonnés par des maîtres sculpteurs du Littoral.",
+                category = "Objets d'Art",
+                location = "Douala (Akwa)",
+                logoUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800",
+                phone = "+237 699 887 766",
+                isCertified = true,
+                rating = 4.85f,
+                reviewCount = 31,
+                followersCount = 260
+            ),
+            ShopItem(
+                id = "user-kyc-2",
+                name = "Awa Couture & Toghu",
+                description = "Tenues royales Toghu brodées à la main avec fils d'or, tissus Kente et vêtements culturels d'exception de Bamenda.",
+                category = "Mode & Vêtements",
+                location = "Bamenda / Yaoundé",
+                logoUrl = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500",
+                bannerUrl = "https://images.unsplash.com/photo-1544441893-675973e31985?w=800",
+                phone = "+237 677 112 233",
+                isCertified = true,
+                rating = 4.9f,
+                reviewCount = 45,
+                followersCount = 390
+            )
+        )
+    )
+    val shops: StateFlow<List<ShopItem>> = _shops.asStateFlow()
 
     // Followed shops and content creators global state
     private val _followedShops = MutableStateFlow<Set<String>>(emptySet())
@@ -1027,6 +1160,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             mediaUrl = mediaUrl
         )
         _reels.update { listOf(newReel) + it }
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.saveReelToFirestore(newReel)
+            } catch (_: Throwable) {}
+        }
     }
 
     // Tracks viewed reel IDs per user to ensure unique view counting
@@ -1196,6 +1334,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             deliveryCost = deliveryCost
         )
         _products.update { it + newProduct }
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.saveProductToFirestore(newProduct)
+            } catch (_: Throwable) {}
+        }
     }
 
     fun deleteProduct(productId: String) {
@@ -1204,6 +1347,10 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteReel(reelId: String) {
         _reels.update { list -> list.filter { it.id != reelId } }
+    }
+
+    fun addToCart(product: ProductItem) {
+        purchaseProduct(product, payInNCoins = false)
     }
 
     // Purchase product & create order
@@ -1410,7 +1557,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Chat messaging
-    fun sendMessage(conversationId: String, text: String) {
+    fun sendMessage(conversationId: String, text: String, replyToText: String = "", replyToSender: String = "") {
         if (text.trim().isEmpty()) return
         
         val senderVal = if (_activeRole.value == "Admin") "admin" else "moi"
@@ -1419,7 +1566,15 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             list.map { conv ->
                 if (conv.id == conversationId) {
                     val updatedMessages = ArrayList(conv.messages)
-                    updatedMessages.add(Message(senderVal, text.trim(), "À l'instant"))
+                    updatedMessages.add(
+                        Message(
+                            sender = senderVal,
+                            text = text.trim(),
+                            time = "À l'instant",
+                            replyToText = replyToText,
+                            replyToSender = replyToSender
+                        )
+                    )
                     conv.copy(
                         lastMessage = text.trim(),
                         lastTime = "À l'instant",
@@ -1431,12 +1586,66 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        // Save message to online Firebase database
+        viewModelScope.launch {
+            try {
+                val currentConv = _conversations.value.find { it.id == conversationId }
+                val contactName = currentConv?.contactName ?: "Utilisateur NorA"
+                val uPhone = currentConv?.userPhone ?: _userProfile.value.whatsappNumber
+                val uEmail = currentConv?.userEmail ?: _userProfile.value.email
+                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                    conversationId = conversationId,
+                    contactName = contactName,
+                    message = Message(
+                        sender = senderVal,
+                        text = text.trim(),
+                        time = "À l'instant",
+                        replyToText = replyToText,
+                        replyToSender = replyToSender
+                    ),
+                    userPhone = uPhone,
+                    userEmail = uEmail
+                )
+            } catch (_: Throwable) {}
+        }
+
         _lastIncomingMessageConvId.value = conversationId
 
-        // Post a push notification about the incoming message:
-        // Only trigger push notification when sent BY Admin to user
         if (_activeRole.value == "Admin") {
             postNotification("Message de NorA Support : ${text.trim()}")
+        } else if (conversationId == "conv-3" || conversationId.contains("admin")) {
+            viewModelScope.launch {
+                delay(1200)
+                val replyText = if (text.startsWith("[VoiceNote:")) {
+                    "NorA Support : Nous avons bien reçu votre note vocale. Un conseiller va vous assister."
+                } else {
+                    "NorA Support : Bonjour ! Nous avons bien reçu votre message. Un agent de support traite votre demande."
+                }
+                _conversations.update { list ->
+                    list.map { conv ->
+                        if (conv.id == conversationId) {
+                            val updatedMessages = ArrayList(conv.messages)
+                            updatedMessages.add(Message("admin", replyText, "À l'instant"))
+                            conv.copy(
+                                lastMessage = replyText,
+                                lastTime = "À l'instant",
+                                messages = updatedMessages
+                            )
+                        } else {
+                            conv
+                        }
+                    }
+                }
+                try {
+                    val currentConv = _conversations.value.find { it.id == conversationId }
+                    com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                        conversationId = conversationId,
+                        contactName = currentConv?.contactName ?: "NorA Support",
+                        message = Message("admin", replyText, "À l'instant")
+                    )
+                } catch (_: Throwable) {}
+                postNotification("Nouveau message de NorA Support")
+            }
         }
     }
 
@@ -1479,6 +1688,16 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _lastIncomingMessageConvId.value = convId
         _activeChatId.value = convId
         _currentTabIndex.value = 2 // Switch to Chat tab
+
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                    conversationId = convId,
+                    contactName = cleanName,
+                    message = Message("admin", initialMessage, "À l'instant")
+                )
+            } catch (_: Throwable) {}
+        }
     }
 
     fun adminContactUserWithDetails(user: UserProfile, initialMessage: String) {
@@ -1526,6 +1745,17 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _lastIncomingMessageConvId.value = convId
         _activeChatId.value = convId
         _currentTabIndex.value = 2
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                    conversationId = convId,
+                    contactName = cleanName,
+                    message = Message("admin", initialMessage, "À l'instant"),
+                    userPhone = user.whatsappNumber,
+                    userEmail = user.email
+                )
+            } catch (_: Throwable) {}
+        }
     }
 
     fun deleteUser(userId: String) {
@@ -1582,13 +1812,52 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
     // Update shop profile
     fun updateShopProfile(shopName: String, shopDesc: String, shopLoc: String, shopPic: String) {
+        val sName = shopName.ifBlank { _userProfile.value.shopName }
+        val sDesc = shopDesc.ifBlank { _userProfile.value.shopDescription }
+        val sLoc = shopLoc.ifBlank { _userProfile.value.shopLocation }
+        val sPic = shopPic.ifBlank { _userProfile.value.shopPic }
+
         _userProfile.update {
             it.copy(
-                shopName = shopName.ifBlank { it.shopName },
-                shopDescription = shopDesc.ifBlank { it.shopDescription },
-                shopLocation = shopLoc.ifBlank { it.shopLocation },
-                shopPic = shopPic.ifBlank { it.shopPic }
+                shopName = sName,
+                shopDescription = sDesc,
+                shopLocation = sLoc,
+                shopPic = sPic
             )
+        }
+
+        // Upsert into global _shops list so it is immediately visible in the Boutiques tab & shop list
+        if (sName.isNotBlank()) {
+            _shops.update { currentShops ->
+                val existingIndex = currentShops.indexOfFirst { it.name.equals(sName, ignoreCase = true) || it.id == sName }
+                val updatedShop = if (existingIndex >= 0) {
+                    currentShops[existingIndex].copy(
+                        name = sName,
+                        description = sDesc,
+                        location = sLoc,
+                        logoUrl = sPic,
+                        isCertified = (_userProfile.value.kycStatus == "Certifié" || _activeRole.value == "Créateur")
+                    )
+                } else {
+                    ShopItem(
+                        id = "shop-${java.util.UUID.randomUUID().toString().take(6)}",
+                        name = sName,
+                        description = sDesc.ifBlank { "Boutique officielle sur NorA Cameroun" },
+                        category = "Général",
+                        location = sLoc.ifBlank { "Douala, Cameroun" },
+                        logoUrl = sPic,
+                        bannerUrl = "",
+                        phone = _userProfile.value.whatsappNumber.ifBlank { "+237 655 924 778" },
+                        isCertified = (_userProfile.value.kycStatus == "Certifié" || _activeRole.value == "Créateur"),
+                        followersCount = _userProfile.value.followersCount.coerceAtLeast(1)
+                    )
+                }
+                if (existingIndex >= 0) {
+                    currentShops.toMutableList().apply { set(existingIndex, updatedShop) }
+                } else {
+                    currentShops + updatedShop
+                }
+            }
         }
     }
 
@@ -1811,6 +2080,68 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
+            }
+        }
+
+        // 6. Connect to online Firebase Firestore real-time synchronization
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.getConversationsRealtime().collect { remoteConvs ->
+                    if (remoteConvs.isNotEmpty()) {
+                        _conversations.update { localList ->
+                            val mergedMap = localList.associateBy { it.id }.toMutableMap()
+                            for (remote in remoteConvs) {
+                                val existing = mergedMap[remote.id]
+                                if (existing == null) {
+                                    mergedMap[remote.id] = remote
+                                } else {
+                                    val allMsgs = (existing.messages + remote.messages)
+                                        .distinctBy { "${it.sender}_${it.text}_${it.time}" }
+                                    mergedMap[remote.id] = existing.copy(
+                                        lastMessage = remote.lastMessage.ifBlank { existing.lastMessage },
+                                        lastTime = remote.lastTime.ifBlank { existing.lastTime },
+                                        messages = allMsgs
+                                    )
+                                }
+                            }
+                            mergedMap.values.toList()
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.getProductsRealtime().collect { remoteProds ->
+                    if (remoteProds.isNotEmpty()) {
+                        _products.update { localList ->
+                            val localIds = localList.map { it.id }.toSet()
+                            val newOnes = remoteProds.filter { it.id !in localIds }
+                            newOnes + localList
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                com.example.data.firebase.FirebaseManager.getReelsRealtime().collect { remoteReels ->
+                    if (remoteReels.isNotEmpty()) {
+                        _reels.update { localList ->
+                            val localIds = localList.map { it.id }.toSet()
+                            val newOnes = remoteReels.filter { it.id !in localIds }
+                            newOnes + localList
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
             }
         }
     }

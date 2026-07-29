@@ -106,6 +106,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
+            com.example.data.firebase.FirebaseManager.initFirebase(applicationContext)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+        try {
             enableEdgeToEdge()
         } catch (e: Throwable) {
             e.printStackTrace()
@@ -146,12 +151,12 @@ fun NoraSplashScreen() {
             Surface(
                 modifier = Modifier
                     .size(130.dp),
-                shape = CircleShape,
+                shape = RoundedCornerShape(28.dp),
                 color = Color.Transparent,
                 shadowElevation = 8.dp
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.nora_logo),
+                    painter = painterResource(id = R.drawable.img_nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
@@ -206,7 +211,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
     var showNotificationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentNotification) {
-        if (currentNotification != null && currentTabIndex != 1) {
+        if (currentNotification != null && currentTabIndex != 2) {
             sendSystemNotification(context, "Nora Cameroun 🪙", currentNotification!!)
         }
     }
@@ -260,8 +265,8 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
         // Main Application Shell
         Box(modifier = Modifier.fillMaxSize()) {            Scaffold(
                 topBar = {
-                    if (currentTabIndex != 3 || activeChatId == null) {
-                        if (currentTabIndex == 1) {
+                    if (currentTabIndex != 4 || activeChatId == null) {
+                        if (currentTabIndex == 2) {
                             // Immersive minimal top bar for Reels tab: Only show the notification bell
                             Box(
                                 modifier = Modifier
@@ -300,108 +305,77 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                 }
                             }
                         } else {
-                            Column(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(Color(0xFF007A5E))
                                     .statusBarsPadding()
                             ) {
-                                // Gorgeous NORA CAMEROUN Header
+                                // Compact 2x smaller Top Bar
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        .padding(horizontal = 14.dp, vertical = 5.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Left: Square logo box centered on N emblem & dynamic app texts
+                                    // Left: Logo De Nora + "NORA"
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.clickable { viewModel.setCurrentTabIndex(0) }
                                     ) {
                                         Surface(
-                                            modifier = Modifier.size(42.dp),
-                                            shape = CircleShape,
-                                            color = Color.Transparent,
-                                            shadowElevation = 3.dp
+                                            modifier = Modifier.size(28.dp),
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color.Transparent
                                         ) {
                                             Image(
-                                                painter = painterResource(id = R.drawable.nora_logo),
-                                                contentDescription = "Logo Nora Cameroun",
+                                                painter = painterResource(id = R.drawable.img_nora_logo),
+                                                contentDescription = "Logo Nora",
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Fit
                                             )
                                         }
-                                        Column {
-                                            Text(
-                                                text = "NORA",
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = Color.White,
-                                                letterSpacing = 1.sp
-                                            )
-                                            Text(
-                                                text = "CAMEROUN",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                letterSpacing = 0.5.sp
-                                            )
-                                            Text(
-                                                text = "Achetez • Vendez • Gagnez",
-                                                fontSize = 8.sp,
-                                                color = Color(0xFFA7F3D0),
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        }
+                                        Text(
+                                            text = "NORA",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White,
+                                            letterSpacing = 1.2.sp
+                                        )
                                     }
 
-                                    // Right: Admin/Buyer status capsule pill & notification bell
+                                    // Right: User Profile Picture (clickable to open Profile) + Notification bell
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Box {
-                                            Row(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(100.dp))
-                                                    .background(Color(0x33FFFFFF)) // 20% white overlay
-                                                    .border(
-                                                        width = 1.dp,
-                                                        color = Color(0xFF34D399).copy(alpha = 0.5f),
-                                                        shape = RoundedCornerShape(100.dp)
-                                                    )
-                                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                // Circular icon placeholder inside capsule
-                                                Box(
+                                        // Clickable User Profile Picture
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White.copy(alpha = 0.25f))
+                                                .border(1.5.dp, Color(0xFF34D399), CircleShape)
+                                                .clickable { viewModel.setCurrentTabIndex(5) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (userProfile.profilePic.isNotBlank()) {
+                                                coil.compose.AsyncImage(
+                                                    model = userProfile.profilePic,
+                                                    contentDescription = "Mon Profil",
                                                     modifier = Modifier
-                                                        .size(18.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color.White.copy(alpha = 0.2f)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = when (activeRole) {
-                                                            "Admin" -> Icons.Default.SupportAgent
-                                                            else -> Icons.Default.Person
-                                                        },
-                                                        contentDescription = null,
-                                                        tint = Color.White,
-                                                        modifier = Modifier.size(12.dp)
-                                                    )
-                                                }
+                                                        .fillMaxSize()
+                                                        .clip(CircleShape),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
                                                 Text(
-                                                    text = when (activeRole) {
-                                                        "Admin" -> "ADMINISTRATEUR"
-                                                        else -> "ACHETEUR"
-                                                    },
+                                                    text = userProfile.name.take(1).uppercase().ifBlank { "U" },
                                                     color = Color.White,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    letterSpacing = 0.5.sp
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
@@ -413,13 +387,13 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                                     showNotificationDialog = true
                                                     viewModel.markNotificationsAsRead()
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(34.dp)
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Notifications,
                                                     contentDescription = "Notifications",
                                                     tint = Color.White,
-                                                    modifier = Modifier.size(24.dp)
+                                                    modifier = Modifier.size(22.dp)
                                                 )
                                             }
                                             if (hasUnreadNotifications && notifications.isNotEmpty()) {
@@ -439,19 +413,37 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                     }
                 },
             bottomBar = {
-                if (currentTabIndex != 3 || activeChatId == null) {
+                if (currentTabIndex != 4 || activeChatId == null) {
                     NavigationBar(
                         containerColor = Color.White,
                         tonalElevation = 8.dp,
                         modifier = Modifier.navigationBarsPadding()
                     ) {
-                    // Tab 0: Boutiques (Marketplace)
+                    // Tab 0: Produits (Marketplace stream)
                     NavigationBarItem(
                         selected = currentTabIndex == 0,
                         onClick = { viewModel.setCurrentTabIndex(0) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 0) Icons.Filled.Storefront else Icons.Outlined.Storefront,
+                                imageVector = if (currentTabIndex == 0) Icons.Filled.ShoppingBag else Icons.Outlined.ShoppingBag,
+                                contentDescription = "Produits"
+                            )
+                        },
+                        label = { Text("Produits", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color(0xFF10B981),
+                            selectedTextColor = Color(0xFF10B981),
+                            indicatorColor = Color(0xFFEFF6FF)
+                        )
+                    )
+
+                    // Tab 1: Boutiques (Shops explorer)
+                    NavigationBarItem(
+                        selected = currentTabIndex == 1,
+                        onClick = { viewModel.setCurrentTabIndex(1) },
+                        icon = {
+                            Icon(
+                                imageVector = if (currentTabIndex == 1) Icons.Filled.Storefront else Icons.Outlined.Storefront,
                                 contentDescription = "Boutiques"
                             )
                         },
@@ -463,13 +455,13 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
                     
-                    // Tab 1: Vidéos (Reels)
+                    // Tab 2: Vidéos (Reels)
                     NavigationBarItem(
-                        selected = currentTabIndex == 1,
-                        onClick = { viewModel.setCurrentTabIndex(1) },
+                        selected = currentTabIndex == 2,
+                        onClick = { viewModel.setCurrentTabIndex(2) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 1) Icons.Filled.VideoLibrary else Icons.Outlined.VideoLibrary,
+                                imageVector = if (currentTabIndex == 2) Icons.Filled.VideoLibrary else Icons.Outlined.VideoLibrary,
                                 contentDescription = "Reels"
                             )
                         },
@@ -481,13 +473,13 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
                     
-                    // Tab 2: Favoris
+                    // Tab 3: Favoris
                     NavigationBarItem(
-                        selected = currentTabIndex == 2,
-                        onClick = { viewModel.setCurrentTabIndex(2) },
+                        selected = currentTabIndex == 3,
+                        onClick = { viewModel.setCurrentTabIndex(3) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 2) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                imageVector = if (currentTabIndex == 3) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favoris"
                             )
                         },
@@ -499,13 +491,13 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
 
-                    // Tab 3: Messages (Conversations)
+                    // Tab 4: Messages (Conversations)
                     NavigationBarItem(
-                        selected = currentTabIndex == 3,
-                        onClick = { viewModel.setCurrentTabIndex(3) },
+                        selected = currentTabIndex == 4,
+                        onClick = { viewModel.setCurrentTabIndex(4) },
                         icon = {
                             Icon(
-                                imageVector = if (currentTabIndex == 3) Icons.Filled.Chat else Icons.Outlined.Chat,
+                                imageVector = if (currentTabIndex == 4) Icons.Filled.Chat else Icons.Outlined.Chat,
                                 contentDescription = "Messages"
                             )
                         },
@@ -517,15 +509,15 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         )
                     )
                     
-                    // Tab 4: Adaptative Role Dashboard / Profil
+                    // Tab 5: Adaptative Role Dashboard / Profil
                     NavigationBarItem(
-                        selected = currentTabIndex == 4,
-                        onClick = { viewModel.setCurrentTabIndex(4) },
+                        selected = currentTabIndex == 5,
+                        onClick = { viewModel.setCurrentTabIndex(5) },
                         icon = {
                             Icon(
                                 imageVector = when (activeRole) {
-                                    "Admin" -> if (currentTabIndex == 4) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
-                                    else -> if (currentTabIndex == 4) Icons.Filled.AccountBox else Icons.Outlined.AccountBox
+                                    "Admin" -> if (currentTabIndex == 5) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
+                                    else -> if (currentTabIndex == 5) Icons.Filled.AccountBox else Icons.Outlined.AccountBox
                                 },
                                 contentDescription = "Mon Profil"
                             )
@@ -533,8 +525,8 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                         label = {
                             Text(
                                 text = when (activeRole) {
-                                    "Admin" -> "Tableau Admin"
-                                    else -> "Mon Profil"
+                                    "Admin" -> "Admin"
+                                    else -> "Profil"
                                 },
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
@@ -558,10 +550,11 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
             ) {
                 when (currentTabIndex) {
                     0 -> MarketplaceView(viewModel = viewModel)
-                    1 -> ReelsView(viewModel = viewModel)
-                    2 -> FavoritesView(viewModel = viewModel)
-                    3 -> MessagesView(viewModel = viewModel)
-                    4 -> {
+                    1 -> ShopsView(viewModel = viewModel)
+                    2 -> ReelsView(viewModel = viewModel)
+                    3 -> FavoritesView(viewModel = viewModel)
+                    4 -> MessagesView(viewModel = viewModel)
+                    5 -> {
                         when (activeRole) {
                             "Admin" -> AdminDashboardView(viewModel = viewModel)
                             else -> ProfileView(viewModel = viewModel)
@@ -722,7 +715,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
 
         // Custom Notification Heads-Up Alert Overlay (hidden when watching videos on tab 0)
         AnimatedVisibility(
-            visible = currentNotification != null && currentTabIndex != 1,
+            visible = currentNotification != null && currentTabIndex != 2,
             enter = slideInVertically(initialOffsetY = { -it }),
             exit = slideOutVertically(targetOffsetY = { -it }),
             modifier = Modifier

@@ -238,6 +238,7 @@ fun FavoritesView(viewModel: NoraViewModel) {
                                         userProfile = userProfile,
                                         isFavorite = true,
                                         onFavoriteToggle = { viewModel.toggleFavoriteProduct(item.id) },
+                                        onShopClick = { viewModel.selectShopAndNavigate(item.shopId) },
                                         onClick = { selectedProductDetails = item }
                                     )
                                 }

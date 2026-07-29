@@ -41,14 +41,19 @@ class FullScreenVideoView(context: Context) : VideoView(context) {
 
 /**
  * Universal Video Player for playing both local device videos (content:// or file://)
- * and web streaming videos using native Android VideoView.
+ * and web streaming videos using native Android VideoView with auto-play, progressive buffering,
+ * and rognage/crop positioning support.
  */
 @Composable
 fun UniversalVideoPlayer(
     videoUrl: String,
     modifier: Modifier = Modifier,
     autoPlay: Boolean = true,
-    showControls: Boolean = true
+    showControls: Boolean = false,
+    startSec: Float = 0f,
+    endSec: Float = 0f,
+    zoomLevel: Float = 1f,
+    rotationAngle: Float = 0f
 ) {
     val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(autoPlay) }
@@ -77,15 +82,26 @@ fun UniversalVideoPlayer(
                         }
                         setOnPreparedListener { mp ->
                             try {
-                                mp.isLooping = true
+                                mp.isLooping = (endSec <= 0f)
                                 mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                             } catch (e: Exception) {
                                 // Fallback for older player drivers
+                            }
+                            if (startSec > 0f) {
+                                try {
+                                    seekTo((startSec * 1000).toInt())
+                                } catch (_: Exception) {}
                             }
                             isPrepared = true
                             if (autoPlay) {
                                 start()
                                 isPlaying = true
+                            }
+                        }
+                        setOnCompletionListener {
+                            if (startSec > 0f || endSec > 0f) {
+                                seekTo((startSec * 1000).toInt())
+                                start()
                             }
                         }
                         setOnErrorListener { _, _, _ ->
@@ -96,8 +112,6 @@ fun UniversalVideoPlayer(
                 },
                 update = { view ->
                     try {
-                        val currentUri = Uri.parse(videoUrl)
-                        // If URI changed or needs playback toggle
                         if (isPlaying && !view.isPlaying && isPrepared) {
                             view.start()
                         } else if (!isPlaying && view.isPlaying) {
@@ -107,7 +121,13 @@ fun UniversalVideoPlayer(
                         hasError = true
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = zoomLevel,
+                        scaleY = zoomLevel,
+                        rotationZ = rotationAngle
+                    )
             )
 
             if (!isPrepared && !hasError) {
@@ -156,7 +176,9 @@ fun UniversalMediaView(
     mediaType: String,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    autoPlayVideo: Boolean = true
+    autoPlayVideo: Boolean = true,
+    zoomLevel: Float = 1f,
+    rotationAngle: Float = 0f
 ) {
     val isVideo = mediaType.contains("Vidéo", ignoreCase = true) ||
             mediaType.contains("Video", ignoreCase = true) ||
@@ -167,7 +189,9 @@ fun UniversalMediaView(
         UniversalVideoPlayer(
             videoUrl = mediaUrl,
             modifier = modifier,
-            autoPlay = autoPlayVideo
+            autoPlay = autoPlayVideo,
+            zoomLevel = zoomLevel,
+            rotationAngle = rotationAngle
         )
     } else if (mediaUrl.isNotBlank()) {
         AsyncImage(
@@ -177,7 +201,13 @@ fun UniversalMediaView(
                 .build(),
             contentDescription = "Média",
             contentScale = contentScale,
-            modifier = modifier.fillMaxSize()
+            modifier = modifier
+                .fillMaxSize()
+                .graphicsLayer(
+                    scaleX = zoomLevel,
+                    scaleY = zoomLevel,
+                    rotationZ = rotationAngle
+                )
         )
     } else {
         Box(

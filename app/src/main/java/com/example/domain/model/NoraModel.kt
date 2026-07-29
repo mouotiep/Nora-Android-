@@ -47,6 +47,22 @@ data class ShopReview(
     val date: String
 )
 
+data class ShopItem(
+    val id: String,
+    val name: String,
+    val description: String,
+    val category: String,
+    val location: String,
+    val logoUrl: String = "",
+    val bannerUrl: String = "",
+    val phone: String = "+237 655 924 778",
+    val isCertified: Boolean = true,
+    val isScammer: Boolean = false,
+    val rating: Float = 4.8f,
+    val reviewCount: Int = 18,
+    val followersCount: Int = 142
+)
+
 data class ReelVideo(
     val id: String,
     val caption: String,
@@ -67,7 +83,9 @@ data class ReelVideo(
 data class Message(
     val sender: String, // "moi", "contact", or "admin"
     val text: String,
-    val time: String
+    val time: String,
+    val replyToText: String = "",
+    val replyToSender: String = ""
 )
 
 data class Conversation(
@@ -117,7 +135,8 @@ data class UserProfile(
     val email: String = "",
     val onboardingCompleted: Boolean = false,
     val nCoinsBalance: Double = 1.0,
-    val referralCode: String = ""
+    val referralCode: String = "",
+    val followersCount: Int = 184
 )
 
 data class NoraOrder(

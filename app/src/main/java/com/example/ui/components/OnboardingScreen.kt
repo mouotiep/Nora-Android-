@@ -305,12 +305,12 @@ fun OnboardingScreen(
             // App Logo
             Surface(
                 modifier = Modifier.size(100.dp),
-                shape = CircleShape,
+                shape = RoundedCornerShape(22.dp),
                 color = Color.Transparent,
                 shadowElevation = 6.dp
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.nora_logo),
+                    painter = painterResource(id = R.drawable.img_nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
@@ -328,9 +328,10 @@ fun OnboardingScreen(
             )
 
             Text(
-                text = "Artisanat d'Art, Mode & Saveurs du Terroir",
-                fontSize = 12.sp,
-                color = Color(0xFF6B7280),
+                text = "Achetez • Vendez • Gagnez",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF007A5E),
                 textAlign = TextAlign.Center
             )
 
