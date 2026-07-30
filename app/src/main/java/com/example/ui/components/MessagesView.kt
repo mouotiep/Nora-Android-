@@ -236,7 +236,7 @@ fun MessagesView(
                         ) {
                             if (currentChat.id == "conv-3" || activeRole != "Admin") {
                                 Image(
-                                    painter = painterResource(id = R.drawable.img_nora_logo),
+                                    painter = painterResource(id = R.drawable.ic_nora_logo),
                                     contentDescription = "Logo NorA",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
@@ -778,7 +778,7 @@ fun ConversationRowItem(
             ) {
                 if (isAdmin) {
                     Image(
-                        painter = painterResource(id = R.drawable.img_nora_logo),
+                        painter = painterResource(id = R.drawable.ic_nora_logo),
                         contentDescription = "NorA Logo",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

@@ -156,7 +156,7 @@ fun NoraSplashScreen() {
                 shadowElevation = 8.dp
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.img_nora_logo),
+                    painter = painterResource(id = R.drawable.ic_nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
@@ -331,7 +331,7 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                             color = Color.Transparent
                                         ) {
                                             Image(
-                                                painter = painterResource(id = R.drawable.img_nora_logo),
+                                                painter = painterResource(id = R.drawable.ic_nora_logo),
                                                 contentDescription = "Logo Nora",
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Fit

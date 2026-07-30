@@ -310,7 +310,7 @@ fun OnboardingScreen(
                 shadowElevation = 6.dp
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.img_nora_logo),
+                    painter = painterResource(id = R.drawable.ic_nora_logo),
                     contentDescription = "Logo Nora Cameroun",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit

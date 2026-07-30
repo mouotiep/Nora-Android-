@@ -1,8 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/img_nora_logo"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M54,18 C73.882,18 90,34.118 90,54 C90,73.882 73.882,90 54,90 C34.118,90 18,73.882 18,54 C18,34.118 34.118,18 54,18 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M54,26 L56.8,33 L64,33.4 L58.5,38 L60.8,45 L54,41 L47.2,45 L49.5,38 L44,33.4 L51.2,33 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,46 L38,72 L46,72 L46,57 L62,72 L70,72 L70,46 L62,46 L62,61 L46,46 Z" />
+</vector>
