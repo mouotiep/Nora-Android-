@@ -62,14 +62,13 @@ object FirebaseManager {
         try {
             if (FirebaseApp.getApps(context).isEmpty()) {
                 val options = com.google.firebase.FirebaseOptions.Builder()
-                    .setApplicationId("1:955006691943:android:noracameroun")
-                    .setProjectId("nora-cameroun-app")
-                    .setApiKey("AIzaSyNoraCamerounOnlineDatabaseKey2026")
-                    .setStorageBucket("nora-cameroun-app.appspot.com")
-                    .setDatabaseUrl("https://nora-cameroun-app-default-rtdb.firebaseio.com")
+                    .setApplicationId("1:977059813132:android:91b836e45ebe0cc7ab1b29")
+                    .setProjectId("nora-cameroun")
+                    .setApiKey("AIzaSyCYJ1wnQAz5F0ZAZaoCS7bFZQ4IT0DAw6c")
+                    .setStorageBucket("nora-cameroun.firebasestorage.app")
                     .build()
                 FirebaseApp.initializeApp(context, options)
-                Log.d(TAG, "Firebase initialisé programmatiquement avec succès.")
+                Log.d(TAG, "Firebase initialisé avec le projet nora-cameroun.")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Init Firebase Error: ${e.message}")

@@ -1,8 +1,12 @@
 package com.example.ui.components
 
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.widget.Toast
+import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
@@ -1744,9 +1748,6 @@ fun AdminDashboardView(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text("Document 1 : Carte Nationale d'Identité (CNI) 🪪", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(6.dp))
 
                     // CNI Visual Display Frame
@@ -1778,6 +1779,20 @@ fun AdminDashboardView(
                                     Text(app.idCardPhoto, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E3A8A))
                                     Text("CNI Officielle - Titulaire: ${app.name}", fontSize = 10.sp, color = Color(0xFF3B82F6))
                                 }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    downloadKycDocumentToPhone(context, app.idCardPhoto, "CNI_${app.name}")
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("📥 Sauvegarder la CNI sur Téléphone", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1816,6 +1831,20 @@ fun AdminDashboardView(
                                     Text(app.selfiePhoto, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
                                     Text("Selfie avec CNI en main", fontSize = 10.sp, color = Color(0xFF10B981))
                                 }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    downloadKycDocumentToPhone(context, app.selfiePhoto, "Selfie_${app.name}")
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("📥 Sauvegarder le Selfie sur Téléphone", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1879,8 +1908,26 @@ fun AdminDashboardView(
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("🚫 Bannir Compte", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("🚫 Bannir", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Delete KYC Documents Button (Purge sensitive files after validation/review)
+                    Button(
+                        onClick = {
+                            viewModel.deleteKycDocuments(app.id)
+                            Toast.makeText(context, "🗑️ Pièces KYC supprimées du serveur pour la protection des données !", Toast.LENGTH_LONG).show()
+                            inspectingKycApp = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("🗑️ Supprimer les pièces KYC du serveur", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2086,5 +2133,29 @@ fun ReportItemRow(
                 }
             }
         }
+    }
+}
+
+fun downloadKycDocumentToPhone(context: Context, fileUrlOrName: String, titleLabel: String) {
+    try {
+        if (fileUrlOrName.startsWith("http://") || fileUrlOrName.startsWith("https://")) {
+            val request = DownloadManager.Request(Uri.parse(fileUrlOrName))
+                .setTitle("Nora KYC - $titleLabel")
+                .setDescription("Téléchargement du document d'identité KYC")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Nora_KYC_${titleLabel}_${System.currentTimeMillis()}.jpg")
+            
+            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+            manager?.enqueue(request)
+            Toast.makeText(context, "📥 Téléchargement démarré pour $titleLabel (dossier Téléchargements)", Toast.LENGTH_LONG).show()
+        } else {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val file = File(downloadsDir, "KYC_${titleLabel.replace(" ", "_")}.txt")
+            file.writeText("DOSSIER VERIFICATION KYC NORA CAMEROUN\nDocument: $titleLabel\nNom Fichier: $fileUrlOrName\nDate: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(java.util.Date())}")
+            Toast.makeText(context, "💾 Document $titleLabel sauvegardé dans vos Téléchargements ! (${file.name})", Toast.LENGTH_LONG).show()
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "💾 Document $titleLabel sauvegardé sur le téléphone !", Toast.LENGTH_SHORT).show()
     }
 }

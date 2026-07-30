@@ -520,6 +520,7 @@ fun ShopDetailScreen(
 
     var selectedTab by remember { mutableStateOf(0) } // 0: Produits, 1: Vidéos, 2: Avis
     var showReviewDialog by remember { mutableStateOf(false) }
+    var selectedProductForDetail by remember { mutableStateOf<ProductItem?>(null) }
 
     Column(
         modifier = Modifier
@@ -870,8 +871,10 @@ fun ShopDetailScreen(
                                     Toast.makeText(context, "${prod.title} ajouté au panier", Toast.LENGTH_SHORT).show()
                                 },
                                 onBuyDirect = {
-                                    viewModel.addToCart(prod)
-                                    viewModel.setCurrentTabIndex(0)
+                                    selectedProductForDetail = prod
+                                },
+                                onClick = {
+                                    selectedProductForDetail = prod
                                 }
                             )
                         }
@@ -1018,18 +1021,28 @@ fun ShopDetailScreen(
             }
         )
     }
+
+    if (selectedProductForDetail != null) {
+        ProductDetailDialog(
+            prod = selectedProductForDetail!!,
+            viewModel = viewModel,
+            onDismiss = { selectedProductForDetail = null }
+        )
+    }
 }
 
 @Composable
 fun ShopProductRowCard(
     product: ProductItem,
     onAddToCart: () -> Unit,
-    onBuyDirect: () -> Unit
+    onBuyDirect: () -> Unit,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onClick?.invoke() ?: onBuyDirect() },
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

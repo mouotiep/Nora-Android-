@@ -615,6 +615,36 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     )
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
 
+    fun startChatWithSeller(shopName: String, productTitle: String) {
+        val existing = _conversations.value.find { it.contactName == shopName }
+        val convId = existing?.id ?: "conv-${UUID.randomUUID().toString().take(6)}"
+        val newMsg = Message("user", "Bonjour $shopName, je suis intéressé par votre produit '$productTitle'", "Maintenant")
+        if (existing != null) {
+            _conversations.update { list ->
+                list.map { conv ->
+                    if (conv.id == convId) {
+                        conv.copy(
+                            lastMessage = newMsg.text,
+                            lastTime = "Aujourd'hui",
+                            messages = conv.messages + newMsg
+                        )
+                    } else conv
+                }
+            }
+        } else {
+            val newConv = Conversation(
+                id = convId,
+                contactName = shopName,
+                lastMessage = newMsg.text,
+                lastTime = "Aujourd'hui",
+                messages = listOf(newMsg)
+            )
+            _conversations.update { listOf(newConv) + it }
+        }
+        _activeChatId.value = convId
+        _currentTabIndex.value = 3
+    }
+
     // Transactions ledger
     private val _transactions = MutableStateFlow<List<Transaction>>(
         listOf(
@@ -897,9 +927,13 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         // Find application
         val app = _kycApplications.value.find { it.id == userId }
         
-        // Update applications list
+        // Update applications list: mark as Certifié so admin can still inspect, save or delete documents
         _kycApplications.update { list ->
-            list.filter { it.id != userId }
+            list.map { item ->
+                if (item.id == userId) {
+                    item.copy(kycStatus = "Certifié", hasShop = true)
+                } else item
+            }
         }
 
         // Update active user profile if matching
@@ -935,6 +969,29 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         postNotification("🎉 Votre demande KYC a été validée ! Vous êtes maintenant Vendeur Certifié sur NorA.")
+    }
+
+    fun deleteKycDocuments(userId: String) {
+        _kycApplications.update { list ->
+            list.map { app ->
+                if (app.id == userId) {
+                    app.copy(idCardPhoto = "Document supprimé", selfiePhoto = "Document supprimé")
+                } else app
+            }
+        }
+        if (_userProfile.value.id == userId) {
+            _userProfile.update {
+                it.copy(idCardPhoto = "Document supprimé", selfiePhoto = "Document supprimé")
+            }
+        }
+        _registeredAccounts.update { map ->
+            map.mapValues { entry ->
+                if (entry.value.profile.id == userId) {
+                    val updatedProf = entry.value.profile.copy(idCardPhoto = "Document supprimé", selfiePhoto = "Document supprimé")
+                    entry.value.copy(profile = updatedProf)
+                } else entry.value
+            }
+        }
     }
 
     fun sanctionKyc(userId: String, action: String) {

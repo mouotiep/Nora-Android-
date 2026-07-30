@@ -338,8 +338,8 @@ fun NoraMainScreen(viewModel: NoraViewModel = viewModel()) {
                                             )
                                         }
                                         Text(
-                                            text = "NORA",
-                                            fontSize = 16.sp,
+                                            text = "nora",
+                                            fontSize = 18.sp,
                                             fontWeight = FontWeight.Black,
                                             color = Color.White,
                                             letterSpacing = 1.2.sp

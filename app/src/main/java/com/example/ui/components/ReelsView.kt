@@ -896,32 +896,12 @@ fun ReelPageItem(
     onReport: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var downloadProgress by remember(reel.id) { mutableStateOf(0) }
-    var isStreamingFinished by remember(reel.id) { mutableStateOf(false) }
-
-    LaunchedEffect(reel.id) {
-        if (reel.mediaType == "Vidéo") {
-            downloadProgress = 0
-            isStreamingFinished = false
-            while (downloadProgress < 100) {
-                delay(70) // Simulates high-speed Cameroon internet streaming buffer
-                downloadProgress += (12..28).random()
-                if (downloadProgress >= 100) {
-                    downloadProgress = 100
-                    isStreamingFinished = true
-                }
-            }
-        } else {
-            isStreamingFinished = true
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Full screen TikTok style media canvas covering 100% of user screen
+        // Responsive media canvas preserving video quality & ratio
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -932,83 +912,34 @@ fun ReelPageItem(
                 )
                 .background(Color.Black)
         ) {
-            if (reel.mediaType == "Vidéo" && !isStreamingFinished) {
-                // Streaming progress ring overlay
-                Column(
+            if (reel.mediaUrl.isNotBlank()) {
+                UniversalMediaView(
+                    mediaUrl = reel.mediaUrl,
+                    mediaType = reel.mediaType,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.85f)),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .background(Color(0xFF0F172A)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        progress = { downloadProgress / 100f },
-                        color = Color(0xFF10B981),
-                        strokeWidth = 3.dp,
-                        modifier = Modifier.size(44.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Flux continu HD TikTok...\n${downloadProgress}%",
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = 16.sp
-                    )
-                }
-            } else {
-                if (reel.mediaUrl.isNotBlank()) {
-                    UniversalMediaView(
-                        mediaUrl = reel.mediaUrl,
-                        mediaType = reel.mediaType,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFF0F172A)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = if (reel.mediaType == "Photo") "Séquence Photo Artisanat" else "Vidéo TikTok Nora",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                
-                if (reel.mediaType == "Vidéo") {
-                    // Blinking live streaming tag top left
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(top = 16.dp, start = 16.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color.Red)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = if (reel.mediaType == "Photo") Icons.Default.Photo else Icons.Default.MovieFilter,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(64.dp)
                         )
-                        Text("STREAMING LIVE", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (reel.mediaType == "Photo") "Séquence Photo Artisanat" else "Vidéo Reel Nora",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
