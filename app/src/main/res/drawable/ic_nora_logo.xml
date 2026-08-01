@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Green Circle Background -->
+    <path
+        android:fillColor="#013715"
+        android:pathData="M 50,0 A 50,50 0 1,1 49.99,0 Z" />
+
+    <!-- White Shopping Bag Frame -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 30,32 H 70 A 5,5 0 0 1 75,37 V 75 A 5,5 0 0 1 70,80 H 30 A 5,5 0 0 1 25,75 V 37 A 5,5 0 0 1 30,32 Z" />
+
+    <!-- Bag handle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M 42,32 C 42,22 58,22 58,32" />
+
+    <!-- Emerald Green Letter 'N' -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 33,42 H 41 V 70 H 33 Z" />
+
+    <path
+        android:fillColor="#059669"
+        android:pathData="M 41,42 L 60,70 H 52 L 33,42 Z" />
+
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 59,42 H 67 V 70 H 59 Z" />
+
+    <!-- Golden Accent Star / Sparkle -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M 72,25 L 74,29 L 78,30 L 75,33 L 76,37 L 72,35 L 68,37 L 69,33 L 66,30 L 70,29 Z" />
+
+</vector>
