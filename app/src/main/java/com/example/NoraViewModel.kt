@@ -2,6 +2,7 @@ package com.example
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.model.*
@@ -737,7 +738,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 _walletNCoins.value = profile.nCoinsBalance
                 onResult(true, null)
             }.onFailure { err ->
-                onResult(false, err.localizedMessage ?: "Email ou mot de passe incorrect")
+                Log.e("NoraViewModel", "Firebase Auth sign in failed", err)
+                onResult(false, err.localizedMessage ?: "Échec de la connexion Firebase. Vérifiez vos identifiants ou votre connexion réseau.")
             }
         }
     }
@@ -797,7 +799,8 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
                 onResult(true, null)
             }.onFailure { err ->
-                onResult(false, err.localizedMessage ?: "Cet email est déjà enregistré ou invalide")
+                Log.e("NoraViewModel", "Firebase Auth sign up failed", err)
+                onResult(false, err.localizedMessage ?: "Échec de l'inscription Firebase. Cet email est peut-être déjà utilisé.")
             }
         }
     }
