@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Shopping bag handle arch -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 45,36 C 45,28 63,28 63,36" />
+
+    <!-- Main White Card / Shopping Bag Body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 33,36 H 75 A 5,5 0 0 1 80,41 V 73 A 5,5 0 0 1 75,78 H 33 A 5,5 0 0 1 28,73 V 41 A 5,5 0 0 1 33,36 Z" />
+
+    <!-- Letter 'N' - Left stem -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 36,45 H 43 V 69 H 36 Z" />
+
+    <!-- Letter 'N' - Diagonal stroke -->
+    <path
+        android:fillColor="#059669"
+        android:pathData="M 43,45 L 65,69 H 58 L 36,45 Z" />
+
+    <!-- Letter 'N' - Right stem -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 65,45 H 72 V 69 H 65 Z" />
+
+    <!-- Leaf accent on top right -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M 68,33 C 68,33 78,35 78,42 C 71,42 68,33 68,33 Z" />
+
+</vector>
