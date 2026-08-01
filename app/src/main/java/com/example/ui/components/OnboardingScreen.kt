@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.theme.*
+import com.example.ui.components.common.*
 import android.widget.Toast
 import com.example.R
 import androidx.compose.foundation.Image
@@ -323,7 +325,7 @@ fun OnboardingScreen(
                 text = "NORA CAMEROUN",
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF007A5E),
+                color = NoraPrimaryDeep,
                 letterSpacing = 1.sp
             )
 

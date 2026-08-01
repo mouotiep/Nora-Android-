@@ -175,6 +175,8 @@ fun UniversalMediaView(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     autoPlayVideo: Boolean = true,
+    startSec: Float = 0f,
+    endSec: Float = 0f,
     zoomLevel: Float = 1f,
     rotationAngle: Float = 0f,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -189,6 +191,8 @@ fun UniversalMediaView(
             videoUrl = mediaUrl,
             modifier = modifier,
             autoPlay = autoPlayVideo,
+            startSec = startSec,
+            endSec = endSec,
             zoomLevel = zoomLevel,
             rotationAngle = rotationAngle,
             resizeMode = resizeMode

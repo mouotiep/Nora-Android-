@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.example.NoraViewModel
 import com.example.ProductItem
 import com.example.NoraOrder
@@ -71,6 +72,8 @@ fun ShopManagerDialog(
     val tabs = listOf("Performance", "Produits", "Commandes", "Modifier")
 
     // Add Product state
+    val scope = rememberCoroutineScope()
+    var isUploadingProduct by remember { mutableStateOf(false) }
     var showAddForm by remember { mutableStateOf(false) }
     var newProdTitle by remember { mutableStateOf("") }
     var newProdPrice by remember { mutableStateOf("") }
@@ -525,6 +528,7 @@ fun ShopManagerDialog(
                                             )
 
                                             Button(
+                                                enabled = !isUploadingProduct,
                                                 onClick = {
                                                     if (newProdTitle.isBlank() || newProdPrice.isBlank()) {
                                                         Toast.makeText(context, "Veuillez remplir le nom et le prix !", Toast.LENGTH_SHORT).show()
@@ -535,35 +539,68 @@ fun ShopManagerDialog(
                                                     val extraImagesList = newProdAdditionalImages.split(",").map { it.trim() }.filter { it.isNotBlank() }
                                                     val variantsList = newProdVariants.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
-                                                    viewModel.addProduct(
-                                                        title = newProdTitle,
-                                                        category = newProdCategory,
-                                                        price = priceInt,
-                                                        stock = stockInt,
-                                                        shopName = myShopName,
-                                                        location = userProfile.shopLocation,
-                                                        description = newProdDesc,
-                                                        imageUrl = newProdImageUrl,
-                                                        images = extraImagesList,
-                                                        variants = variantsList
-                                                    )
-                                                    Toast.makeText(context, "Produit '$newProdTitle' publié avec succès !", Toast.LENGTH_SHORT).show()
-                                                    
-                                                    // Reset
-                                                    newProdTitle = ""
-                                                    newProdPrice = ""
-                                                    newProdStock = ""
-                                                    newProdDesc = ""
-                                                    newProdImageUrl = ""
-                                                    newProdAdditionalImages = ""
-                                                    newProdVariants = ""
-                                                    showAddForm = false
+                                                    scope.launch {
+                                                        isUploadingProduct = true
+                                                        var finalImageUrl = newProdImageUrl
+
+                                                        if (newProdImageUrl.startsWith("content://") || newProdImageUrl.startsWith("file://")) {
+                                                            Toast.makeText(context, "⏳ Téléversement de l'image sur Firebase Storage...", Toast.LENGTH_SHORT).show()
+                                                            val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                                                context = context,
+                                                                uri = Uri.parse(newProdImageUrl),
+                                                                folder = "products"
+                                                            )
+                                                            if (uploadResult.isFailure) {
+                                                                val err = uploadResult.exceptionOrNull()?.message ?: "Erreur de stockage"
+                                                                Toast.makeText(context, "❌ Échec de l'envoi de l'image sur Firebase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
+                                                                isUploadingProduct = false
+                                                                return@launch
+                                                            }
+                                                            finalImageUrl = uploadResult.getOrNull() ?: ""
+                                                        }
+
+                                                        val result = viewModel.addProductSafely(
+                                                            title = newProdTitle,
+                                                            category = newProdCategory,
+                                                            price = priceInt,
+                                                            stock = stockInt,
+                                                            shopName = myShopName,
+                                                            location = userProfile.shopLocation,
+                                                            description = newProdDesc,
+                                                            imageUrl = finalImageUrl,
+                                                            images = extraImagesList,
+                                                            variants = variantsList
+                                                        )
+
+                                                        isUploadingProduct = false
+
+                                                        if (result.isSuccess) {
+                                                            Toast.makeText(context, "Produit '$newProdTitle' publié avec succès sur Firebase !", Toast.LENGTH_SHORT).show()
+                                                            newProdTitle = ""
+                                                            newProdPrice = ""
+                                                            newProdStock = ""
+                                                            newProdDesc = ""
+                                                            newProdImageUrl = ""
+                                                            newProdAdditionalImages = ""
+                                                            newProdVariants = ""
+                                                            showAddForm = false
+                                                        } else {
+                                                            val err = result.exceptionOrNull()?.message ?: "Erreur inconnue"
+                                                            Toast.makeText(context, "❌ Échec Firestore : $err", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    }
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                                                 shape = RoundedCornerShape(8.dp)
                                             ) {
-                                                Text("Mettre en vente l'article 📦", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                if (isUploadingProduct) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("Publication en cours...", fontSize = 11.sp, color = Color.White)
+                                                } else {
+                                                    Text("Mettre en vente l'article 📦", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                }
                                             }
                                         }
                                     }

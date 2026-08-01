@@ -311,8 +311,8 @@ fun MessagesView(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(CircleShape)
-                                .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                                .clip(if (currentChat.id == "conv-3" || activeRole != "Admin") RoundedCornerShape(8.dp) else CircleShape)
+                                .border(1.5.dp, Color.White.copy(alpha = 0.8f), if (currentChat.id == "conv-3" || activeRole != "Admin") RoundedCornerShape(8.dp) else CircleShape)
                                 .background(Color.White),
                             contentAlignment = Alignment.Center
                         ) {
@@ -904,7 +904,7 @@ fun ConversationRowItem(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(CircleShape)
+                    .clip(if (isAdmin) RoundedCornerShape(8.dp) else CircleShape)
                     .background(if (isAdmin) Color(0xFFD1FAE5) else Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {

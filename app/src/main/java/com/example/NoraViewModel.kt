@@ -1152,8 +1152,36 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         aspectRatio: String = "9:16",
         zoomLevel: Float = 1f,
         rotationAngle: Float = 0f,
-        mediaUrl: String = ""
+        mediaUrl: String = "",
+        startSec: Float = 0f,
+        endSec: Float = 0f
     ) {
+        viewModelScope.launch {
+            publishReelSafely(
+                caption = caption,
+                category = category,
+                mediaType = mediaType,
+                aspectRatio = aspectRatio,
+                zoomLevel = zoomLevel,
+                rotationAngle = rotationAngle,
+                mediaUrl = mediaUrl,
+                startSec = startSec,
+                endSec = endSec
+            )
+        }
+    }
+
+    suspend fun publishReelSafely(
+        caption: String,
+        category: String,
+        mediaType: String = "Vidéo",
+        aspectRatio: String = "9:16",
+        zoomLevel: Float = 1f,
+        rotationAngle: Float = 0f,
+        mediaUrl: String = "",
+        startSec: Float = 0f,
+        endSec: Float = 0f
+    ): Result<ReelVideo> {
         val activeUser = _userProfile.value
         val newReel = ReelVideo(
             id = "vid-${java.util.UUID.randomUUID().toString().take(6)}",
@@ -1169,13 +1197,16 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             aspectRatio = aspectRatio,
             zoomLevel = zoomLevel,
             rotationAngle = rotationAngle,
-            mediaUrl = mediaUrl
+            mediaUrl = mediaUrl,
+            startSec = startSec,
+            endSec = endSec
         )
-        _reels.update { listOf(newReel) + it }
-        viewModelScope.launch {
-            try {
-                com.example.data.firebase.FirebaseManager.saveReelToFirestore(newReel)
-            } catch (_: Throwable) {}
+        val saved = com.example.data.firebase.FirebaseManager.saveReelToFirestore(newReel)
+        return if (saved) {
+            _reels.update { listOf(newReel) + it }
+            Result.success(newReel)
+        } else {
+            Result.failure(IllegalStateException("Échec de l'enregistrement dans Firestore. Vérifiez votre connexion internet et les règles Firebase."))
         }
     }
 
@@ -1323,6 +1354,38 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         offersDelivery: Boolean = false,
         deliveryCost: Int = 0
     ) {
+        viewModelScope.launch {
+            addProductSafely(
+                title = title,
+                category = category,
+                price = price,
+                stock = stock,
+                shopName = shopName,
+                location = location,
+                description = description,
+                imageUrl = imageUrl,
+                images = images,
+                variants = variants,
+                offersDelivery = offersDelivery,
+                deliveryCost = deliveryCost
+            )
+        }
+    }
+
+    suspend fun addProductSafely(
+        title: String,
+        category: String,
+        price: Int,
+        stock: Int,
+        shopName: String,
+        location: String,
+        description: String,
+        imageUrl: String,
+        images: List<String> = emptyList(),
+        variants: List<String> = emptyList(),
+        offersDelivery: Boolean = false,
+        deliveryCost: Int = 0
+    ): Result<ProductItem> {
         val activeUser = _userProfile.value
         val mainPhoto = imageUrl.ifEmpty { "https://images.unsplash.com/photo-1544441893-675973e31985?w=500" }
         val allImagesList = if (images.isEmpty()) listOf(mainPhoto) else images
@@ -1345,11 +1408,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             offersDelivery = offersDelivery,
             deliveryCost = deliveryCost
         )
-        _products.update { it + newProduct }
-        viewModelScope.launch {
-            try {
-                com.example.data.firebase.FirebaseManager.saveProductToFirestore(newProduct)
-            } catch (_: Throwable) {}
+        val saved = com.example.data.firebase.FirebaseManager.saveProductToFirestore(newProduct)
+        return if (saved) {
+            _products.update { it + newProduct }
+            Result.success(newProduct)
+        } else {
+            Result.failure(IllegalStateException("Échec de l'enregistrement du produit dans Firestore. Vérifiez votre connexion."))
         }
     }
 

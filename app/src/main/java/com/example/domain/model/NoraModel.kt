@@ -77,7 +77,9 @@ data class ReelVideo(
     val aspectRatio: String = "9:16",
     val zoomLevel: Float = 1f,
     val rotationAngle: Float = 0f,
-    val mediaUrl: String = ""
+    val mediaUrl: String = "",
+    val startSec: Float = 0f,
+    val endSec: Float = 0f
 )
 
 enum class MessageStatus { SENDING, SENT, FAILED }

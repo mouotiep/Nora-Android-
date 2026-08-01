@@ -41,6 +41,8 @@ import com.example.NoraViewModel
 import com.example.ProductItem
 import com.example.ShopReview
 import com.example.toLocaleString
+import com.example.ui.theme.*
+import com.example.ui.components.common.*
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,25 +88,25 @@ fun MarketplaceView(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .padding(horizontal = 16.dp)
+            .background(NoraBackground)
+            .padding(horizontal = NoraSpacing.lg)
     ) {
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(NoraSpacing.md))
 
         // Ad Banner Card + Search Icon Button side-by-side
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
+                .padding(bottom = NoraSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(NoraSpacing.sm)
         ) {
             // Ad Banner Card taking weight(1f)
             Card(
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(NoraRadius.large),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = NoraElevation.low)
             ) {
                 Box(
                     modifier = Modifier.fillMaxWidth()
@@ -118,7 +120,7 @@ fun MarketplaceView(
                             contentDescription = "Affiche Publicitaire",
                             modifier = Modifier
                                 .matchParentSize()
-                                .clip(RoundedCornerShape(16.dp)),
+                                .clip(RoundedCornerShape(NoraRadius.large)),
                             contentScale = ContentScale.Crop
                         )
                         Box(
@@ -132,7 +134,7 @@ fun MarketplaceView(
                                 .matchParentSize()
                                 .background(
                                     Brush.linearGradient(
-                                        colors = listOf(Color(0xFF0F9F72), Color(0xFF007A5E))
+                                        colors = listOf(NoraPrimaryDark, NoraPrimaryDeep)
                                     )
                                 )
                         )

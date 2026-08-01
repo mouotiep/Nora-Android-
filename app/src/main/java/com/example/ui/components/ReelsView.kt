@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.compose.ui.window.Dialog
 import com.example.NoraViewModel
 import com.example.ReelVideo
@@ -513,6 +514,8 @@ fun ReelsView(
     // Interactive Media Upload & Cropping Dialog for Publishing Reels
     if (showPublishReelDialog) {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var isUploadingReel by remember { mutableStateOf(false) }
         var captionInput by remember { mutableStateOf("") }
         var categoryInput by remember { mutableStateOf("Mode & Vêtements") }
         var isVideoSelected by remember { mutableStateOf(true) } // true: Video, false: Photo
@@ -646,43 +649,33 @@ fun ReelsView(
                         Text("Ajuster & Rogner le Fichier ✂️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Live visual preview box that represents the cropped content
+                        // Live visual player preview box with zoom, rotation & startSec/endSec
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(140.dp)
+                                .height(180.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.DarkGray),
+                                .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Represent the selected file simulated thumbnail with the zoom and rotation applied
-                            Column(
-                                modifier = Modifier
-                                    .graphicsLayer(
-                                        scaleX = cropZoomLevel,
-                                        scaleY = cropZoomLevel,
-                                        rotationZ = cropRotationAngle
-                                    ),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = if (isVideoSelected) Icons.Default.MovieFilter else Icons.Default.Photo,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = selectedFileName!!,
-                                    fontSize = 10.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
+                            if (selectedUri != null) {
+                                UniversalMediaView(
+                                    mediaUrl = selectedUri.toString(),
+                                    mediaType = if (isVideoSelected) "Vidéo" else "Photo",
+                                    autoPlayVideo = true,
+                                    startSec = videoStartSec,
+                                    endSec = videoEndSec,
+                                    zoomLevel = cropZoomLevel,
+                                    rotationAngle = cropRotationAngle,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
 
-                            // Aspect Ratio overlay boundary simulator
+                            // Aspect Ratio overlay boundary
                             Box(
                                 modifier = Modifier
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp))
                                     .border(
                                         width = 1.dp,
                                         color = Color(0xFF10B981),
@@ -691,7 +684,7 @@ fun ReelsView(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                                     .align(Alignment.BottomEnd)
                             ) {
-                                Text("Format: $cropAspectRatio", fontSize = 8.sp, color = Color.White)
+                                Text("Format: $cropAspectRatio", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -840,8 +833,9 @@ fun ReelsView(
                         TextButton(onClick = { showPublishReelDialog = false }) { Text("Annuler") }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
+                            enabled = !isUploadingReel,
                             onClick = {
-                                if (selectedFileName == null) {
+                                if (selectedFileName == null || selectedUri == null) {
                                     Toast.makeText(context, "Veuillez sélectionner et importer un fichier depuis votre téléphone", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
@@ -856,22 +850,61 @@ fun ReelsView(
                                         return@Button
                                     }
                                 }
-                                viewModel.publishReel(
-                                    caption = captionInput,
-                                    category = categoryInput,
-                                    mediaType = if (isVideoSelected) "Vidéo" else "Photo",
-                                    aspectRatio = cropAspectRatio,
-                                    zoomLevel = cropZoomLevel,
-                                    rotationAngle = cropRotationAngle,
-                                    mediaUrl = selectedUri?.toString() ?: ""
-                                )
-                                Toast.makeText(context, "Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
-                                showPublishReelDialog = false
+
+                                scope.launch {
+                                    isUploadingReel = true
+                                    var finalMediaUrl = selectedUri.toString()
+
+                                    // Upload file to Firebase Storage if selected from local gallery
+                                    if (finalMediaUrl.startsWith("content://") || finalMediaUrl.startsWith("file://")) {
+                                        Toast.makeText(context, "⏳ Téléversement du média sur Firebase Storage...", Toast.LENGTH_SHORT).show()
+                                        val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                            context = context,
+                                            uri = selectedUri!!,
+                                            folder = "reels"
+                                        )
+                                        if (uploadResult.isFailure) {
+                                            val err = uploadResult.exceptionOrNull()?.message ?: "Erreur de stockage"
+                                            Toast.makeText(context, "❌ Échec de l'envoi du média sur Firebase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
+                                            isUploadingReel = false
+                                            return@launch
+                                        }
+                                        finalMediaUrl = uploadResult.getOrNull() ?: ""
+                                    }
+
+                                    val publishResult = viewModel.publishReelSafely(
+                                        caption = captionInput,
+                                        category = categoryInput,
+                                        mediaType = if (isVideoSelected) "Vidéo" else "Photo",
+                                        aspectRatio = cropAspectRatio,
+                                        zoomLevel = cropZoomLevel,
+                                        rotationAngle = cropRotationAngle,
+                                        mediaUrl = finalMediaUrl,
+                                        startSec = videoStartSec,
+                                        endSec = videoEndSec
+                                    )
+
+                                    isUploadingReel = false
+
+                                    if (publishResult.isSuccess) {
+                                        Toast.makeText(context, "Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
+                                        showPublishReelDialog = false
+                                    } else {
+                                        val err = publishResult.exceptionOrNull()?.message ?: "Erreur inconnue"
+                                        Toast.makeText(context, "❌ Échec Firestore : $err", Toast.LENGTH_LONG).show()
+                                    }
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Publier maintenant")
+                            if (isUploadingReel) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Téléversement...", fontSize = 11.sp, color = Color.White)
+                            } else {
+                                Text("Publier maintenant")
+                            }
                         }
                     }
                 }
@@ -920,6 +953,8 @@ fun ReelPageItem(
                     mediaType = reel.mediaType,
                     contentScale = ContentScale.Crop,
                     autoPlayVideo = isCurrent,
+                    startSec = reel.startSec,
+                    endSec = reel.endSec,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

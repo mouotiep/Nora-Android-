@@ -550,6 +550,11 @@ object FirebaseManager {
         "viewsCount" to r.viewsCount,
         "mediaType" to r.mediaType,
         "category" to r.category,
+        "aspectRatio" to r.aspectRatio,
+        "zoomLevel" to r.zoomLevel,
+        "rotationAngle" to r.rotationAngle,
+        "startSec" to r.startSec,
+        "endSec" to r.endSec,
         "createdAt" to System.currentTimeMillis()
     )
 
@@ -563,7 +568,12 @@ object FirebaseManager {
             viewsCount = ((map["viewsCount"] as? Number)?.toInt()) ?: 0,
             isLiked = false,
             mediaType = (map["mediaType"] as? String) ?: "Vidéo",
-            category = (map["category"] as? String) ?: ""
+            category = (map["category"] as? String) ?: "",
+            aspectRatio = (map["aspectRatio"] as? String) ?: "9:16",
+            zoomLevel = ((map["zoomLevel"] as? Number)?.toFloat()) ?: 1f,
+            rotationAngle = ((map["rotationAngle"] as? Number)?.toFloat()) ?: 0f,
+            startSec = ((map["startSec"] as? Number)?.toFloat()) ?: 0f,
+            endSec = ((map["endSec"] as? Number)?.toFloat()) ?: 0f
         )
     }
 }
