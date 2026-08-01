@@ -1,6 +1,8 @@
 package com.example
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -107,6 +109,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         try {
             com.example.data.firebase.FirebaseManager.initFirebase(applicationContext)
+            lifecycleScope.launch {
+                com.example.data.firebase.FirebaseManager.ensureAuthenticated()
+            }
         } catch (e: Throwable) {
             e.printStackTrace()
         }

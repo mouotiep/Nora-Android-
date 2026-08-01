@@ -606,9 +606,14 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 id = "conv-3",
                 contactName = "Administrateur Nora (Coordination)",
                 lastMessage = "Bonjour, bienvenue chez Nora pour vous servir",
-                lastTime = "Aujourd'hui",
+                lastTimestampMillis = System.currentTimeMillis() - 3600000,
                 messages = listOf(
-                    Message("admin", "Bonjour, bienvenue chez Nora pour vous servir", "08:00")
+                    Message(
+                        sender = "admin",
+                        text = "Bonjour, bienvenue chez Nora pour vous servir",
+                        timestampMillis = System.currentTimeMillis() - 3600000,
+                        status = MessageStatus.SENT
+                    )
                 )
             )
         )
@@ -618,14 +623,19 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     fun startChatWithSeller(shopName: String, productTitle: String) {
         val existing = _conversations.value.find { it.contactName == shopName }
         val convId = existing?.id ?: "conv-${UUID.randomUUID().toString().take(6)}"
-        val newMsg = Message("user", "Bonjour $shopName, je suis intéressé par votre produit '$productTitle'", "Maintenant")
+        val newMsg = Message(
+            sender = "user",
+            text = "Bonjour $shopName, je suis intéressé par votre produit '$productTitle'",
+            timestampMillis = System.currentTimeMillis(),
+            status = MessageStatus.SENT
+        )
         if (existing != null) {
             _conversations.update { list ->
                 list.map { conv ->
                     if (conv.id == convId) {
                         conv.copy(
                             lastMessage = newMsg.text,
-                            lastTime = "Aujourd'hui",
+                            lastTimestampMillis = newMsg.timestampMillis,
                             messages = conv.messages + newMsg
                         )
                     } else conv
@@ -636,7 +646,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 id = convId,
                 contactName = shopName,
                 lastMessage = newMsg.text,
-                lastTime = "Aujourd'hui",
+                lastTimestampMillis = newMsg.timestampMillis,
                 messages = listOf(newMsg)
             )
             _conversations.update { listOf(newConv) + it }
@@ -711,40 +721,25 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loginUser(email: String, password: String): Boolean {
+    fun loginUser(email: String, password: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         val trimmedEmail = email.trim()
-        if (trimmedEmail == "mouotiep@gmail.com" && password == "Mouotie1@,*") {
-            _userProfile.update {
-                it.copy(
-                    id = "admin-mouotiep",
-                    name = "admin Nora",
-                    whatsappNumber = "+237 655 924 778",
-                    isLoggedIn = true,
-                    onboardingCompleted = true,
-                    email = "mouotiep@gmail.com",
-                    kycStatus = "Certifié",
-                    referralCode = "admin-mouotie"
-                )
-            }
-            _activeRole.value = "Admin"
-            _walletNCoins.value = 5000.0
-            return true
+        if (trimmedEmail.isBlank() || password.isBlank()) {
+            onResult(false, "Email et mot de passe requis")
+            return
         }
 
-        val storedAccount = _registeredAccounts.value[trimmedEmail]
-        if (storedAccount != null && storedAccount.password == password) {
-            val profile = storedAccount.profile
-            val code = if (profile.referralCode.isBlank()) {
-                trimmedEmail.substringBefore("@").lowercase().replace("[^a-z0-9]".toRegex(), "") + "-" + UUID.randomUUID().toString().take(4)
-            } else {
-                profile.referralCode
+        viewModelScope.launch {
+            val res = com.example.data.firebase.FirebaseManager.signInWithEmail(trimmedEmail, password)
+            res.onSuccess { profile ->
+                val role = com.example.data.firebase.FirebaseManager.resolveActiveRole(profile.id)
+                _userProfile.value = profile.copy(isLoggedIn = true)
+                _activeRole.value = role
+                _walletNCoins.value = profile.nCoinsBalance
+                onResult(true, null)
+            }.onFailure { err ->
+                onResult(false, err.localizedMessage ?: "Email ou mot de passe incorrect")
             }
-            _userProfile.value = profile.copy(isLoggedIn = true, referralCode = code)
-            _activeRole.value = if (profile.email == "mouotiep@gmail.com") "Admin" else "Acheteur"
-            _walletNCoins.value = profile.nCoinsBalance
-            return true
         }
-        return false
     }
 
     fun findUserByReferralCodeOrLink(input: String): UserProfile? {
@@ -771,88 +766,45 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         return null
     }
 
-    fun registerUser(email: String, password: String, whatsappNumber: String, referredByCode: String? = null): Boolean {
+    fun registerUser(
+        email: String,
+        password: String,
+        whatsappNumber: String,
+        referredByCode: String? = null,
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
+    ) {
         val trimmedEmail = email.trim()
-        val formattedWhatsapp = validateAndFormatCameroonPhone(whatsappNumber) ?: return false
-        if (trimmedEmail.isBlank() || password.isBlank()) return false
-        if (_registeredAccounts.value.containsKey(trimmedEmail)) return false
-        
-        val uniqueCode = UUID.randomUUID().toString().take(6)
-        val generatedReferralCode = trimmedEmail.substringBefore("@").lowercase().replace("[^a-z0-9]".toRegex(), "") + "-" + uniqueCode
-
-        val newProfile = UserProfile(
-            id = "user-${UUID.randomUUID()}",
-            name = "Nouveau Membre",
-            whatsappNumber = formattedWhatsapp,
-            email = trimmedEmail,
-            isLoggedIn = true,
-            onboardingCompleted = false,
-            nCoinsBalance = 1.0,
-            referralCode = generatedReferralCode
-        )
-        val newAccount = Account(trimmedEmail, password, newProfile)
-        _registeredAccounts.update { it + (trimmedEmail to newAccount) }
-        _userProfile.value = newProfile
-        _walletNCoins.value = 1.0 // Set welcome wallet balance
-        _activeRole.value = "Acheteur"
-        _currentTabIndex.value = 0 // Open Boutiques tab first on registration
-        _totalUsersCount.update { it + 1 }
-        _activeUsersCount.update { it + 1 }
-        _totalDistributedNCoins.update { it + 1 } // Dynamic N-Coins welcome gift
-        postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
-
-        // Process referral reward if any!
-        if (!referredByCode.isNullOrBlank()) {
-            val inviter = findUserByReferralCodeOrLink(referredByCode)
-            if (inviter != null) {
-                val reward = 0.25
-                val inviterEmail = inviter.email
-                val inviterAccount = _registeredAccounts.value[inviterEmail]
-                if (inviterAccount != null) {
-                    val updatedProfile = inviterAccount.profile.copy(
-                        nCoinsBalance = inviterAccount.profile.nCoinsBalance + reward
-                    )
-                    _registeredAccounts.update {
-                        it + (inviterEmail to inviterAccount.copy(profile = updatedProfile))
-                    }
-                    if (_userProfile.value.id == inviter.id) {
-                        _userProfile.value = updatedProfile
-                        _walletNCoins.value = updatedProfile.nCoinsBalance
-                    }
-                    _transactions.update { tList ->
-                        val nList = ArrayList(tList)
-                        nList.add(
-                            0,
-                            Transaction(
-                                title = "Parrainage Nora 👥",
-                                description = "Félicitations ! $trimmedEmail s'est inscrit avec votre lien",
-                                amount = reward,
-                                date = "Aujourd'hui",
-                                isPositive = true
-                            )
-                        )
-                        nList
-                    }
-                    _totalDistributedNCoins.update { it + reward }
-                    postNotification("👥 Parrainage réussi ! ${inviter.name} gagne +${reward.toLocaleString()} N-Coins grâce à l'inscription de $trimmedEmail !")
-                }
-            }
+        val formattedWhatsapp = validateAndFormatCameroonPhone(whatsappNumber)
+        if (formattedWhatsapp == null) {
+            onResult(false, "Numéro WhatsApp invalide ! Syntaxe obligatoire : +237 suivi de 9 chiffres")
+            return
+        }
+        if (trimmedEmail.isBlank() || password.isBlank()) {
+            onResult(false, "Email et mot de passe requis")
+            return
         }
 
-        return true
+        viewModelScope.launch {
+            val res = com.example.data.firebase.FirebaseManager.signUpWithEmail(trimmedEmail, password, "Nouveau Membre", formattedWhatsapp)
+            res.onSuccess { profile ->
+                _userProfile.value = profile.copy(isLoggedIn = true)
+                _walletNCoins.value = 1.0
+                _activeRole.value = "Acheteur"
+                _currentTabIndex.value = 0
+                _totalUsersCount.update { it + 1 }
+                _activeUsersCount.update { it + 1 }
+                _totalDistributedNCoins.update { it + 1 }
+                postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
+                onResult(true, null)
+            }.onFailure { err ->
+                onResult(false, err.localizedMessage ?: "Cet email est déjà enregistré ou invalide")
+            }
+        }
     }
 
     fun logoutUser() {
-        val current = _userProfile.value
-        val currentAccount = _registeredAccounts.value[current.email]
-        if (currentAccount != null) {
-            _registeredAccounts.update {
-                it + (current.email to currentAccount.copy(profile = current.copy(isLoggedIn = false)))
-            }
-        }
-        if (current.email == "mouotiep@gmail.com") {
-            releaseSubAdmin()
-        }
+        com.example.data.firebase.FirebaseManager.signOut()
+        releaseSubAdmin()
         _userProfile.value = UserProfile()
         _activeRole.value = "Acheteur"
         _currentTabIndex.value = 0
@@ -1451,17 +1403,28 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 nList
             }
+            viewModelScope.launch {
+                com.example.data.firebase.FirebaseManager.recordWalletEvent(
+                    userId = activeUser.id,
+                    eventType = "PURCHASE_DISCOUNT",
+                    amount = -coinsUsedForDiscount,
+                    meta = "Réduction sur le produit ${product.id}"
+                )
+            }
         }
 
-        // Reduce stock
+        // Reduce stock atomically in Firestore & locally
         _products.update { pList ->
             pList.map { p ->
                 if (p.id == product.id) {
-                    p.copy(stock = p.stock - 1)
+                    p.copy(stock = (p.stock - 1).coerceAtLeast(0))
                 } else {
                     p
                 }
             }
+        }
+        viewModelScope.launch {
+            com.example.data.firebase.FirebaseManager.purchaseProductAtomic(product.id, 1)
         }
 
         // Adapt user interest automatically based on this purchased product
@@ -1502,18 +1465,20 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     "${product.price} FCFA à la livraison"
                 }
+                val now = System.currentTimeMillis()
                 updatedMessages.add(
                     Message(
                         sender = "admin",
                         text = "ALERTE COMMANDE : ${activeUser.name} a commandé '${product.title}' chez ${product.shopName}. Solde: $priceDetail. Je coordonne la livraison.",
-                        time = "À l'instant"
+                        timestampMillis = now,
+                        status = MessageStatus.SENT
                     )
                 )
                 list.map { conv ->
                     if (conv.id == "conv-3") {
                         conv.copy(
                             lastMessage = "ALERTE COMMANDE: ${product.title}",
-                            lastTime = "À l'instant",
+                            lastTimestampMillis = now,
                             messages = updatedMessages
                         )
                     } else {
@@ -1573,18 +1538,20 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             val adminConv = list.find { it.id == "conv-3" }
             if (adminConv != null) {
                 val updatedMessages = ArrayList(adminConv.messages)
+                val now = System.currentTimeMillis()
                 updatedMessages.add(
                     Message(
                         sender = "admin",
                         text = "LIVRAISON CONFIRMÉE PAR SCAN QR! Transaction #${ord.id} finalisée. Commission de 5% (${adminFee} FCFA) déduite pour Nora Admin. Vendeur crédité de ${netSellerGains} FCFA.",
-                        time = "À l'instant"
+                        timestampMillis = now,
+                        status = MessageStatus.SENT
                     )
                 )
                 list.map { conv ->
                     if (conv.id == "conv-3") {
                         conv.copy(
                             lastMessage = "Livraison validée par QR !",
-                            lastTime = "À l'instant",
+                            lastTimestampMillis = now,
                             messages = updatedMessages
                         )
                     } else {
@@ -1618,23 +1585,26 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         if (text.trim().isEmpty()) return
         
         val senderVal = if (_activeRole.value == "Admin") "admin" else "moi"
+        val newMsgId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val newMsg = Message(
+            id = newMsgId,
+            sender = senderVal,
+            text = text.trim(),
+            timestampMillis = now,
+            replyToText = replyToText,
+            replyToSender = replyToSender,
+            status = MessageStatus.SENDING
+        )
         
         _conversations.update { list ->
             list.map { conv ->
                 if (conv.id == conversationId) {
                     val updatedMessages = ArrayList(conv.messages)
-                    updatedMessages.add(
-                        Message(
-                            sender = senderVal,
-                            text = text.trim(),
-                            time = "À l'instant",
-                            replyToText = replyToText,
-                            replyToSender = replyToSender
-                        )
-                    )
+                    updatedMessages.add(newMsg)
                     conv.copy(
                         lastMessage = text.trim(),
-                        lastTime = "À l'instant",
+                        lastTimestampMillis = now,
                         messages = updatedMessages
                     )
                 } else {
@@ -1645,25 +1615,29 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         // Save message to online Firebase database
         viewModelScope.launch {
-            try {
-                val currentConv = _conversations.value.find { it.id == conversationId }
-                val contactName = currentConv?.contactName ?: "Utilisateur NorA"
-                val uPhone = currentConv?.userPhone ?: _userProfile.value.whatsappNumber
-                val uEmail = currentConv?.userEmail ?: _userProfile.value.email
-                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
-                    conversationId = conversationId,
-                    contactName = contactName,
-                    message = Message(
-                        sender = senderVal,
-                        text = text.trim(),
-                        time = "À l'instant",
-                        replyToText = replyToText,
-                        replyToSender = replyToSender
-                    ),
-                    userPhone = uPhone,
-                    userEmail = uEmail
-                )
-            } catch (_: Throwable) {}
+            val currentConv = _conversations.value.find { it.id == conversationId }
+            val contactName = currentConv?.contactName ?: "Utilisateur NorA"
+            val uPhone = currentConv?.userPhone ?: _userProfile.value.whatsappNumber
+            val uEmail = currentConv?.userEmail ?: _userProfile.value.email
+            val success = com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                conversationId = conversationId,
+                contactName = contactName,
+                message = newMsg.copy(status = MessageStatus.SENT),
+                userPhone = uPhone,
+                userEmail = uEmail
+            )
+            _conversations.update { list ->
+                list.map { conv ->
+                    if (conv.id == conversationId) {
+                        val updatedMsgs = conv.messages.map { msg ->
+                            if (msg.id == newMsgId) {
+                                msg.copy(status = if (success) MessageStatus.SENT else MessageStatus.FAILED)
+                            } else msg
+                        }
+                        conv.copy(messages = updatedMsgs)
+                    } else conv
+                }
+            }
         }
 
         _lastIncomingMessageConvId.value = conversationId
@@ -1678,14 +1652,21 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     "NorA Support : Bonjour ! Nous avons bien reçu votre message. Un agent de support traite votre demande."
                 }
+                val replyNow = System.currentTimeMillis()
+                val adminReplyMsg = Message(
+                    sender = "admin",
+                    text = replyText,
+                    timestampMillis = replyNow,
+                    status = MessageStatus.SENT
+                )
                 _conversations.update { list ->
                     list.map { conv ->
                         if (conv.id == conversationId) {
                             val updatedMessages = ArrayList(conv.messages)
-                            updatedMessages.add(Message("admin", replyText, "À l'instant"))
+                            updatedMessages.add(adminReplyMsg)
                             conv.copy(
                                 lastMessage = replyText,
-                                lastTime = "À l'instant",
+                                lastTimestampMillis = replyNow,
                                 messages = updatedMessages
                             )
                         } else {
@@ -1698,10 +1679,51 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
                         conversationId = conversationId,
                         contactName = currentConv?.contactName ?: "NorA Support",
-                        message = Message("admin", replyText, "À l'instant")
+                        message = adminReplyMsg
                     )
                 } catch (_: Throwable) {}
                 postNotification("Nouveau message de NorA Support")
+            }
+        }
+    }
+
+    fun retryMessage(conversationId: String, messageId: String) {
+        val conv = _conversations.value.find { it.id == conversationId } ?: return
+        val targetMsg = conv.messages.find { it.id == messageId } ?: return
+
+        _conversations.update { list ->
+            list.map { c ->
+                if (c.id == conversationId) {
+                    val updatedMsgs = c.messages.map { m ->
+                        if (m.id == messageId) m.copy(status = MessageStatus.SENDING) else m
+                    }
+                    c.copy(messages = updatedMsgs)
+                } else c
+            }
+        }
+
+        viewModelScope.launch {
+            val contactName = conv.contactName.ifBlank { "Utilisateur NorA" }
+            val uPhone = conv.userPhone.ifBlank { _userProfile.value.whatsappNumber }
+            val uEmail = conv.userEmail.ifBlank { _userProfile.value.email }
+            val success = com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                conversationId = conversationId,
+                contactName = contactName,
+                message = targetMsg.copy(status = MessageStatus.SENT),
+                userPhone = uPhone,
+                userEmail = uEmail
+            )
+            _conversations.update { list ->
+                list.map { c ->
+                    if (c.id == conversationId) {
+                        val updatedMsgs = c.messages.map { m ->
+                            if (m.id == messageId) {
+                                m.copy(status = if (success) MessageStatus.SENT else MessageStatus.FAILED)
+                            } else m
+                        }
+                        c.copy(messages = updatedMsgs)
+                    } else c
+                }
             }
         }
     }
@@ -1710,30 +1732,31 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         val cleanName = contactName.trim()
         val existing = _conversations.value.find { it.contactName.equals(cleanName, ignoreCase = true) }
         val convId = existing?.id ?: "conv-user-${System.currentTimeMillis()}"
+        val now = System.currentTimeMillis()
+        val msg = Message(
+            sender = "admin",
+            text = initialMessage,
+            timestampMillis = now,
+            status = MessageStatus.SENT
+        )
         if (existing == null) {
             val newConv = Conversation(
                 id = convId,
                 contactName = cleanName,
                 lastMessage = initialMessage,
-                lastTime = "À l'instant",
-                messages = listOf(
-                    Message(
-                        sender = "admin",
-                        text = initialMessage,
-                        time = "À l'instant"
-                    )
-                )
+                lastTimestampMillis = now,
+                messages = listOf(msg)
             )
             _conversations.update { it + newConv }
         } else {
             val updatedMessages = ArrayList(existing.messages)
-            updatedMessages.add(Message("admin", initialMessage, "À l'instant"))
+            updatedMessages.add(msg)
             _conversations.update { list ->
                 list.map { conv ->
                     if (conv.id == existing.id) {
                         conv.copy(
                             lastMessage = initialMessage,
-                            lastTime = "À l'instant",
+                            lastTimestampMillis = now,
                             messages = updatedMessages
                         )
                     } else {
@@ -1751,7 +1774,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
                     conversationId = convId,
                     contactName = cleanName,
-                    message = Message("admin", initialMessage, "À l'instant")
+                    message = msg
                 )
             } catch (_: Throwable) {}
         }
@@ -1761,19 +1784,20 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         val cleanName = user.name.trim().ifBlank { "Utilisateur" }
         val existing = _conversations.value.find { it.userId == user.id || it.contactName.equals(cleanName, ignoreCase = true) }
         val convId = existing?.id ?: "conv-user-${System.currentTimeMillis()}"
+        val now = System.currentTimeMillis()
+        val msg = Message(
+            sender = "admin",
+            text = initialMessage,
+            timestampMillis = now,
+            status = MessageStatus.SENT
+        )
         if (existing == null) {
             val newConv = Conversation(
                 id = convId,
                 contactName = cleanName,
                 lastMessage = initialMessage,
-                lastTime = "À l'instant",
-                messages = listOf(
-                    Message(
-                        sender = "admin",
-                        text = initialMessage,
-                        time = "À l'instant"
-                    )
-                ),
+                lastTimestampMillis = now,
+                messages = listOf(msg),
                 userPhone = user.whatsappNumber,
                 userEmail = user.email,
                 userId = user.id
@@ -1781,13 +1805,13 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             _conversations.update { it + newConv }
         } else {
             val updatedMessages = ArrayList(existing.messages)
-            updatedMessages.add(Message("admin", initialMessage, "À l'instant"))
+            updatedMessages.add(msg)
             _conversations.update { list ->
                 list.map { conv ->
                     if (conv.id == existing.id) {
                         conv.copy(
                             lastMessage = initialMessage,
-                            lastTime = "À l'instant",
+                            lastTimestampMillis = now,
                             messages = updatedMessages,
                             userPhone = user.whatsappNumber.ifBlank { conv.userPhone },
                             userEmail = user.email.ifBlank { conv.userEmail },
@@ -1807,7 +1831,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
                     conversationId = convId,
                     contactName = cleanName,
-                    message = Message("admin", initialMessage, "À l'instant"),
+                    message = msg,
                     userPhone = user.whatsappNumber,
                     userEmail = user.email
                 )
@@ -2143,6 +2167,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         // 6. Connect to online Firebase Firestore real-time synchronization
         viewModelScope.launch {
             try {
+                com.example.data.firebase.FirebaseManager.ensureAuthenticated()
                 com.example.data.firebase.FirebaseManager.getConversationsRealtime().collect { remoteConvs ->
                     if (remoteConvs.isNotEmpty()) {
                         _conversations.update { localList ->
@@ -2153,10 +2178,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                                     mergedMap[remote.id] = remote
                                 } else {
                                     val allMsgs = (existing.messages + remote.messages)
-                                        .distinctBy { "${it.sender}_${it.text}_${it.time}" }
+                                        .distinctBy { it.id }
+                                        .sortedBy { it.timestampMillis }
                                     mergedMap[remote.id] = existing.copy(
                                         lastMessage = remote.lastMessage.ifBlank { existing.lastMessage },
-                                        lastTime = remote.lastTime.ifBlank { existing.lastTime },
+                                        lastTimestampMillis = if (remote.lastTimestampMillis > existing.lastTimestampMillis) remote.lastTimestampMillis else existing.lastTimestampMillis,
                                         messages = allMsgs
                                     )
                                 }

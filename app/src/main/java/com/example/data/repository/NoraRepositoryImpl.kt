@@ -1,7 +1,5 @@
 package com.example.data.repository
 
-import com.example.data.api.NoraApiClient
-import com.example.data.api.NoraApiService
 import com.example.domain.model.*
 import com.example.domain.repository.NoraRepository
 import kotlinx.coroutines.CoroutineScope
@@ -11,9 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class NoraRepositoryImpl(
-    private val apiService: NoraApiService = NoraApiClient.apiService
-) : NoraRepository {
+class NoraRepositoryImpl : NoraRepository {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -129,25 +125,13 @@ class NoraRepositoryImpl(
     override val walletNCoins: StateFlow<Double> = _walletNCoins.asStateFlow()
 
     override suspend fun fetchProductsRemote(): List<ProductItem> {
-        return try {
-            val response = apiService.getProducts()
-            if (response.isSuccessful && response.body() != null) {
-                val remoteList = response.body()!!
-                _products.value = remoteList
-                remoteList
-            } else {
-                _products.value
-            }
-        } catch (e: Exception) {
-            _products.value
-        }
+        return _products.value
     }
 
     override suspend fun addProduct(product: ProductItem) {
         val updated = listOf(product) + _products.value
         _products.value = updated
         scope.launch {
-            try { apiService.createProduct(product) } catch (_: Exception) {}
             try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
         }
     }
@@ -156,7 +140,6 @@ class NoraRepositoryImpl(
         val updated = _products.value.map { if (it.id == product.id) product else it }
         _products.value = updated
         scope.launch {
-            try { apiService.updateProduct(product.id, product) } catch (_: Exception) {}
             try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
         }
     }
@@ -164,7 +147,6 @@ class NoraRepositoryImpl(
     override suspend fun deleteProduct(productId: String) {
         _products.value = _products.value.filter { it.id != productId }
         scope.launch {
-            try { apiService.deleteProduct(productId) } catch (_: Exception) {}
             try { com.example.data.firebase.FirebaseManager.deleteProductFromFirestore(productId) } catch (_: Exception) {}
         }
     }
@@ -173,16 +155,12 @@ class NoraRepositoryImpl(
         val updated = listOf(reel) + _reels.value
         _reels.value = updated
         scope.launch {
-            try { apiService.createReel(reel) } catch (_: Exception) {}
             try { com.example.data.firebase.FirebaseManager.saveReelToFirestore(reel) } catch (_: Exception) {}
         }
     }
 
     override suspend fun deleteReel(reelId: String) {
         _reels.value = _reels.value.filter { it.id != reelId }
-        scope.launch {
-            try { apiService.deleteReel(reelId) } catch (_: Exception) {}
-        }
     }
 
     override suspend fun toggleLike(reelId: String) {
@@ -192,9 +170,6 @@ class NoraRepositoryImpl(
                 val newLikesCount = if (newLikedState) reel.likesCount + 1 else (reel.likesCount - 1).coerceAtLeast(0)
                 reel.copy(isLiked = newLikedState, likesCount = newLikesCount)
             } else reel
-        }
-        scope.launch {
-            try { apiService.likeReel(reelId) } catch (_: Exception) {}
         }
     }
 
@@ -211,29 +186,14 @@ class NoraRepositoryImpl(
 
     override suspend fun updateUserProfile(profile: UserProfile) {
         _userProfile.value = profile
-        scope.launch {
-            try { apiService.updateUserProfile(profile) } catch (_: Exception) {}
-        }
     }
 
     override suspend fun uploadMedia(fileUri: String, mediaType: String): String {
-        return try {
-            val response = apiService.uploadMedia(mediaType, fileUri)
-            if (response.isSuccessful && response.body()?.success == true) {
-                response.body()!!.mediaUrl
-            } else {
-                fileUri
-            }
-        } catch (e: Exception) {
-            fileUri
-        }
+        return fileUri
     }
 
     override suspend fun placeOrder(order: NoraOrder) {
         _orders.value = listOf(order) + _orders.value
-        scope.launch {
-            try { apiService.createOrder(order) } catch (_: Exception) {}
-        }
     }
 
     override suspend fun updateOrderStatus(orderId: String, newStatus: String) {
@@ -241,8 +201,6 @@ class NoraRepositoryImpl(
     }
 
     override suspend fun syncWithBackendApi() {
-        try {
-            fetchProductsRemote()
-        } catch (_: Exception) {}
+        // No dead REST API calls
     }
 }

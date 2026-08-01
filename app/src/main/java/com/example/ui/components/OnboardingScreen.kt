@@ -538,11 +538,12 @@ fun OnboardingScreen(
                             }
 
                             if (isLoginTab) {
-                                val success = viewModel.loginUser(email, password)
-                                if (success) {
-                                    Toast.makeText(context, "Connexion réussie !", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Email ou mot de passe incorrect", Toast.LENGTH_LONG).show()
+                                viewModel.loginUser(email, password) { success, errorMsg ->
+                                    if (success) {
+                                        Toast.makeText(context, "Connexion réussie !", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, errorMsg ?: "Email ou mot de passe incorrect", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             } else {
                                 val validWhatsapp = NoraViewModel.validateAndFormatCameroonPhone(whatsappInput)
@@ -550,11 +551,12 @@ fun OnboardingScreen(
                                     Toast.makeText(context, "Numéro WhatsApp invalide ! Syntaxe obligatoire : +237 suivi de 9 chiffres (Ex: +237655924778)", Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
-                                val success = viewModel.registerUser(email, password, validWhatsapp, referredByCode = referralCodeInput)
-                                if (success) {
-                                    Toast.makeText(context, "Compte créé ! Veuillez configurer votre profil.", Toast.LENGTH_LONG).show()
-                                } else {
-                                    Toast.makeText(context, "Cet email est déjà enregistré", Toast.LENGTH_LONG).show()
+                                viewModel.registerUser(email, password, validWhatsapp, referredByCode = referralCodeInput) { success, errorMsg ->
+                                    if (success) {
+                                        Toast.makeText(context, "Compte créé ! Veuillez configurer votre profil.", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, errorMsg ?: "Erreur d'inscription", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }
                         },

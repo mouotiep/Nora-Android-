@@ -3,24 +3,18 @@ package com.example.ui.components
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.MediaController
-import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -29,22 +23,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
-class FullScreenVideoView(context: Context) : VideoView(context) {
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = getDefaultSize(0, widthMeasureSpec)
-        val height = getDefaultSize(0, heightMeasureSpec)
-        setMeasuredDimension(width, height)
-    }
-}
-
 /**
  * Universal Video Player for playing both local device videos (content:// or file://)
- * and web streaming videos using native Android VideoView with auto-play, progressive buffering,
- * and rognage/crop positioning support.
+ * and web streaming videos using ExoPlayer with auto-play, progressive buffering,
+ * and responsive aspect-ratio scaling (RESIZE_MODE_ZOOM / RESIZE_MODE_FIT).
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun UniversalVideoPlayer(
     videoUrl: String,
@@ -54,92 +47,14 @@ fun UniversalVideoPlayer(
     startSec: Float = 0f,
     endSec: Float = 0f,
     zoomLevel: Float = 1f,
-    rotationAngle: Float = 0f
+    rotationAngle: Float = 0f,
+    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 ) {
     val context = LocalContext.current
-    var isPlaying by remember { mutableStateOf(autoPlay) }
-    var isPrepared by remember { mutableStateOf(false) }
     var hasError by remember { mutableStateOf(false) }
+    var isPrepared by remember { mutableStateOf(false) }
 
-    if (videoUrl.isNotBlank() && !hasError) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    FullScreenVideoView(ctx).apply {
-                        if (showControls) {
-                            val controller = MediaController(ctx)
-                            controller.setAnchorView(this)
-                            setMediaController(controller)
-                        }
-                        try {
-                            setVideoURI(Uri.parse(videoUrl))
-                        } catch (e: Exception) {
-                            hasError = true
-                        }
-                        setOnPreparedListener { mp ->
-                            try {
-                                mp.isLooping = (endSec <= 0f)
-                                mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
-                            } catch (e: Exception) {
-                                // Fallback for older player drivers
-                            }
-                            if (startSec > 0f) {
-                                try {
-                                    seekTo((startSec * 1000).toInt())
-                                } catch (_: Exception) {}
-                            }
-                            isPrepared = true
-                            if (autoPlay) {
-                                start()
-                                isPlaying = true
-                            }
-                        }
-                        setOnCompletionListener {
-                            if (startSec > 0f || endSec > 0f) {
-                                seekTo((startSec * 1000).toInt())
-                                start()
-                            }
-                        }
-                        setOnErrorListener { _, _, _ ->
-                            hasError = true
-                            true
-                        }
-                    }
-                },
-                update = { view ->
-                    try {
-                        if (isPlaying && !view.isPlaying && isPrepared) {
-                            view.start()
-                        } else if (!isPlaying && view.isPlaying) {
-                            view.pause()
-                        }
-                    } catch (e: Exception) {
-                        hasError = true
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = zoomLevel,
-                        scaleY = zoomLevel,
-                        rotationZ = rotationAngle
-                    )
-            )
-
-            if (!isPrepared && !hasError) {
-                CircularProgressIndicator(
-                    color = Color(0xFF10B981),
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-        }
-    } else {
-        // Fallback view when no video URI is present or playback fails
+    if (videoUrl.isBlank() || hasError) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -165,12 +80,94 @@ fun UniversalVideoPlayer(
                 )
             }
         }
+        return
+    }
+
+    val exoPlayer = remember(videoUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            try {
+                setMediaItem(MediaItem.fromUri(Uri.parse(videoUrl)))
+                repeatMode = if (endSec <= 0f) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                prepare()
+                if (startSec > 0f) seekTo((startSec * 1000).toLong())
+                playWhenReady = autoPlay
+            } catch (e: Exception) {
+                hasError = true
+            }
+        }
+    }
+
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                hasError = true
+            }
+
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) {
+                    isPrepared = true
+                }
+                if (state == Player.STATE_ENDED && (startSec > 0f || endSec > 0f)) {
+                    exoPlayer.seekTo((startSec * 1000).toLong())
+                    if (autoPlay) exoPlayer.play()
+                }
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    LaunchedEffect(autoPlay) {
+        exoPlayer.playWhenReady = autoPlay
+        if (autoPlay) {
+            exoPlayer.play()
+        } else {
+            exoPlayer.pause()
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = showControls
+                    this.resizeMode = resizeMode
+                }
+            },
+            update = { playerView ->
+                playerView.resizeMode = resizeMode
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(
+                    scaleX = zoomLevel,
+                    scaleY = zoomLevel,
+                    rotationZ = rotationAngle
+                )
+        )
+
+        if (!isPrepared && !hasError) {
+            CircularProgressIndicator(
+                color = Color(0xFF10B981),
+                modifier = Modifier.size(36.dp)
+            )
+        }
     }
 }
 
 /**
  * Renders either a Video or an Image based on mediaType or URI extension.
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun UniversalMediaView(
     mediaUrl: String,
@@ -179,7 +176,8 @@ fun UniversalMediaView(
     contentScale: ContentScale = ContentScale.Crop,
     autoPlayVideo: Boolean = true,
     zoomLevel: Float = 1f,
-    rotationAngle: Float = 0f
+    rotationAngle: Float = 0f,
+    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 ) {
     val isVideo = mediaType.contains("Vidéo", ignoreCase = true) ||
             mediaType.contains("Video", ignoreCase = true) ||
@@ -192,7 +190,8 @@ fun UniversalMediaView(
             modifier = modifier,
             autoPlay = autoPlayVideo,
             zoomLevel = zoomLevel,
-            rotationAngle = rotationAngle
+            rotationAngle = rotationAngle,
+            resizeMode = resizeMode
         )
     } else if (mediaUrl.isNotBlank()) {
         AsyncImage(

@@ -61,17 +61,85 @@ object FirebaseManager {
     fun initFirebase(context: Context) {
         try {
             if (FirebaseApp.getApps(context).isEmpty()) {
-                val options = com.google.firebase.FirebaseOptions.Builder()
-                    .setApplicationId("1:977059813132:android:91b836e45ebe0cc7ab1b29")
-                    .setProjectId("nora-cameroun")
-                    .setApiKey("AIzaSyCYJ1wnQAz5F0ZAZaoCS7bFZQ4IT0DAw6c")
-                    .setStorageBucket("nora-cameroun.firebasestorage.app")
-                    .build()
-                FirebaseApp.initializeApp(context, options)
+                val app = FirebaseApp.initializeApp(context)
+                if (app == null) {
+                    val options = com.google.firebase.FirebaseOptions.Builder()
+                        .setApplicationId("1:977059813132:android:91b836e45ebe0cc7ab1b29")
+                        .setProjectId("nora-cameroun")
+                        .setApiKey("AIzaSyCYJ1wnQAz5F0ZAZaoCS7bFZQ4IT0DAw6c")
+                        .setStorageBucket("nora-cameroun.firebasestorage.app")
+                        .build()
+                    FirebaseApp.initializeApp(context, options)
+                }
                 Log.d(TAG, "Firebase initialisé avec le projet nora-cameroun.")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Init Firebase Error: ${e.message}")
+        }
+    }
+
+    suspend fun ensureAuthenticated(): FirebaseUser? {
+        val authInstance = auth ?: return null
+        authInstance.currentUser?.let { return it }
+        return try {
+            val result = authInstance.signInAnonymously().await()
+            Log.d(TAG, "Connexion anonyme Firebase réussie: ${result.user?.uid}")
+            result.user
+        } catch (e: Exception) {
+            Log.e(TAG, "Échec connexion anonyme Firebase: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun resolveActiveRole(uid: String): String {
+        val db = firestore ?: return "Acheteur"
+        return try {
+            val doc = db.collection("admins").document(uid).get().await()
+            if (doc.exists()) "Admin" else "Acheteur"
+        } catch (e: Exception) {
+            "Acheteur"
+        }
+    }
+
+    suspend fun recordWalletEvent(userId: String, eventType: String, amount: Double, meta: String = ""): Result<Unit> {
+        val db = firestore ?: return Result.failure(IllegalStateException("Firestore non initialisé"))
+        ensureAuthenticated()
+        return try {
+            val eventId = UUID.randomUUID().toString()
+            val data = mapOf(
+                "eventId" to eventId,
+                "userId" to userId,
+                "eventType" to eventType,
+                "amount" to amount,
+                "meta" to meta,
+                "timestamp" to System.currentTimeMillis()
+            )
+            db.collection("wallet_events").document(eventId).set(data).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun purchaseProductAtomic(productId: String, quantity: Int = 1): Result<Unit> {
+        val db = firestore ?: return Result.failure(IllegalStateException("Firestore non initialisé"))
+        ensureAuthenticated()
+        return try {
+            db.runTransaction { transaction ->
+                val ref = db.collection("products").document(productId)
+                val snapshot = transaction.get(ref)
+                if (!snapshot.exists()) {
+                    throw IllegalStateException("Produit introuvable")
+                }
+                val currentStock = (snapshot.getLong("stock") ?: 0L).toInt()
+                if (currentStock < quantity) {
+                    throw IllegalStateException("Stock insuffisant")
+                }
+                transaction.update(ref, "stock", currentStock - quantity)
+            }.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -154,6 +222,7 @@ object FirebaseManager {
 
     suspend fun saveProductToFirestore(product: ProductItem): Boolean {
         val db = firestore ?: return false
+        ensureAuthenticated()
         return try {
             val id = if (product.id.isBlank()) UUID.randomUUID().toString() else product.id
             db.collection("products")
@@ -162,18 +231,21 @@ object FirebaseManager {
                 .await()
             true
         } catch (e: Exception) {
-            Log.e(TAG, "saveProduct Error: ${e.message}")
+            val code = (e as? com.google.firebase.firestore.FirebaseFirestoreException)?.code
+            Log.e(TAG, "saveProduct Error: ${e.message} [code=$code]", e)
             false
         }
     }
 
     suspend fun deleteProductFromFirestore(productId: String): Boolean {
         val db = firestore ?: return false
+        ensureAuthenticated()
         return try {
             db.collection("products").document(productId).delete().await()
             true
         } catch (e: Exception) {
-            Log.e(TAG, "deleteProduct Error: ${e.message}")
+            val code = (e as? com.google.firebase.firestore.FirebaseFirestoreException)?.code
+            Log.e(TAG, "deleteProduct Error: ${e.message} [code=$code]", e)
             false
         }
     }
@@ -190,7 +262,8 @@ object FirebaseManager {
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    Log.e(TAG, "Products listener error: ${e.message}")
+                    val code = e.code
+                    Log.e(TAG, "Products listener error: ${e.message} [code=$code]", e)
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -208,6 +281,7 @@ object FirebaseManager {
 
     suspend fun saveReelToFirestore(reel: ReelVideo): Boolean {
         val db = firestore ?: return false
+        ensureAuthenticated()
         return try {
             val id = if (reel.id.isBlank()) UUID.randomUUID().toString() else reel.id
             db.collection("reels")
@@ -216,7 +290,8 @@ object FirebaseManager {
                 .await()
             true
         } catch (e: Exception) {
-            Log.e(TAG, "saveReel Error: ${e.message}")
+            val code = (e as? com.google.firebase.firestore.FirebaseFirestoreException)?.code
+            Log.e(TAG, "saveReel Error: ${e.message} [code=$code]", e)
             false
         }
     }
@@ -233,7 +308,8 @@ object FirebaseManager {
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    Log.e(TAG, "Reels listener error: ${e.message}")
+                    val code = e.code
+                    Log.e(TAG, "Reels listener error: ${e.message} [code=$code]", e)
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -257,6 +333,7 @@ object FirebaseManager {
         userEmail: String = ""
     ): Boolean {
         val db = firestore ?: return false
+        ensureAuthenticated()
         return try {
             val convRef = db.collection("conversations").document(conversationId)
 
@@ -264,27 +341,29 @@ object FirebaseManager {
                 "id" to conversationId,
                 "contactName" to contactName,
                 "lastMessage" to message.text,
-                "lastTime" to message.time,
+                "lastTimestampMillis" to message.timestampMillis,
                 "userPhone" to userPhone,
                 "userEmail" to userEmail,
                 "updatedAt" to System.currentTimeMillis()
             )
             convRef.set(convData, com.google.firebase.firestore.SetOptions.merge()).await()
 
-            val msgId = UUID.randomUUID().toString()
+            val msgId = message.id.ifBlank { UUID.randomUUID().toString() }
             val msgData = mapOf(
                 "id" to msgId,
                 "sender" to message.sender,
                 "text" to message.text,
-                "time" to message.time,
+                "timestampMillis" to message.timestampMillis,
                 "replyToText" to message.replyToText,
                 "replyToSender" to message.replyToSender,
-                "timestamp" to System.currentTimeMillis()
+                "status" to message.status.name,
+                "timestamp" to message.timestampMillis
             )
             convRef.collection("messages").document(msgId).set(msgData).await()
             true
         } catch (e: Exception) {
-            Log.e(TAG, "saveMessage Error: ${e.message}")
+            val code = (e as? com.google.firebase.firestore.FirebaseFirestoreException)?.code
+            Log.e(TAG, "saveMessage Error: ${e.message} [code=$code]", e)
             false
         }
     }
@@ -301,7 +380,8 @@ object FirebaseManager {
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    Log.e(TAG, "Conversations listener error: ${e.message}")
+                    val code = e.code
+                    Log.e(TAG, "Conversations listener error: ${e.message} [code=$code]", e)
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -318,7 +398,9 @@ object FirebaseManager {
                         val id = doc.id
                         val contactName = (map["contactName"] as? String) ?: "Utilisateur NorA"
                         val lastMessage = (map["lastMessage"] as? String) ?: ""
-                        val lastTime = (map["lastTime"] as? String) ?: ""
+                        val lastTimestamp = (map["lastTimestampMillis"] as? Long)
+                            ?: (map["updatedAt"] as? Long)
+                            ?: System.currentTimeMillis()
                         val userPhone = (map["userPhone"] as? String) ?: ""
                         val userEmail = (map["userEmail"] as? String) ?: ""
 
@@ -328,12 +410,21 @@ object FirebaseManager {
                             .addOnSuccessListener { msgSnap ->
                                 val messages = msgSnap.documents.mapNotNull { mDoc ->
                                     val mData = mDoc.data ?: return@mapNotNull null
+                                    val mId = (mData["id"] as? String) ?: mDoc.id
+                                    val ts = (mData["timestampMillis"] as? Long)
+                                        ?: (mData["timestamp"] as? Long)
+                                        ?: System.currentTimeMillis()
+                                    val statusStr = (mData["status"] as? String) ?: "SENT"
+                                    val status = try { com.example.domain.model.MessageStatus.valueOf(statusStr) } catch (_: Exception) { com.example.domain.model.MessageStatus.SENT }
+
                                     Message(
+                                        id = mId,
                                         sender = (mData["sender"] as? String) ?: "moi",
                                         text = (mData["text"] as? String) ?: "",
-                                        time = (mData["time"] as? String) ?: "",
+                                        timestampMillis = ts,
                                         replyToText = (mData["replyToText"] as? String) ?: "",
-                                        replyToSender = (mData["replyToSender"] as? String) ?: ""
+                                        replyToSender = (mData["replyToSender"] as? String) ?: "",
+                                        status = status
                                     )
                                 }
                                 synchronized(conversationsList) {
@@ -342,7 +433,7 @@ object FirebaseManager {
                                             id = id,
                                             contactName = contactName,
                                             lastMessage = lastMessage,
-                                            lastTime = lastTime,
+                                            lastTimestampMillis = lastTimestamp,
                                             userPhone = userPhone,
                                             userEmail = userEmail,
                                             messages = messages
@@ -373,6 +464,7 @@ object FirebaseManager {
 
     suspend fun uploadFileToStorage(context: Context, uri: Uri, folder: String = "uploads"): Result<String> {
         val st = storage ?: return Result.failure(IllegalStateException("Firebase Storage non disponible"))
+        ensureAuthenticated()
         return try {
             val filename = "${UUID.randomUUID()}_media"
             val ref = st.reference.child("$folder/$filename")
@@ -380,7 +472,8 @@ object FirebaseManager {
             val downloadUrl = ref.downloadUrl.await().toString()
             Result.success(downloadUrl)
         } catch (e: Exception) {
-            Log.e(TAG, "Upload error: ${e.message}")
+            val code = (e as? com.google.firebase.storage.StorageException)?.errorCode
+            Log.e(TAG, "Upload error: ${e.message} [code=$code]", e)
             Result.failure(e)
         }
     }

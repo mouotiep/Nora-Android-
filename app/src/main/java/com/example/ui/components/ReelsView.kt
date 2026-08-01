@@ -140,6 +140,7 @@ fun ReelsView(
                         val shop = shops.find { it.name.equals(reel.creatorName, ignoreCase = true) || it.id == reel.creatorName }
                         shop?.followersCount ?: 210
                     },
+                    isCurrent = isCurrent,
                     onCreatorClick = {
                         val shop = shops.find { it.name.equals(reel.creatorName, ignoreCase = true) || it.id == reel.creatorName }
                         val shopId = shop?.id ?: products.find { it.shopName.equals(reel.creatorName, ignoreCase = true) }?.shopId ?: "shop-noun"
@@ -888,6 +889,7 @@ fun ReelPageItem(
     requiredWatchSeconds: Int = 25,
     isViewCounted: Boolean = false,
     followersCount: Int = 180,
+    isCurrent: Boolean = true,
     onCreatorClick: (() -> Unit)? = null,
     onLike: () -> Unit,
     onFollow: () -> Unit,
@@ -917,6 +919,7 @@ fun ReelPageItem(
                     mediaUrl = reel.mediaUrl,
                     mediaType = reel.mediaType,
                     contentScale = ContentScale.Crop,
+                    autoPlayVideo = isCurrent,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

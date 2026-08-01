@@ -1,16 +1,24 @@
 package com.example.ui.components
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
-import android.speech.tts.TextToSpeech
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,28 +38,44 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.example.Conversation
 import com.example.NoraViewModel
 import com.example.R
+import com.example.domain.model.MessageStatus
+import com.example.media.VoiceRecorder
 import kotlinx.coroutines.delay
-import java.util.Locale
+import kotlinx.coroutines.launch
 
 data class ReplyTarget(
     val senderName: String,
     val messageText: String
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun playBeep(type: Int = ToneGenerator.TONE_PROP_BEEP, durationMs: Int = 100) {
+    try {
+        val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
+        toneGen.startTone(type, durationMs)
+        Handler(Looper.getMainLooper()).postDelayed({
+            try { toneGen.release() } catch (_: Exception) {}
+        }, durationMs.toLong() + 50)
+    } catch (_: Exception) {}
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MessagesView(
     viewModel: NoraViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val rawConversations by viewModel.conversations.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
@@ -59,26 +83,58 @@ fun MessagesView(
 
     var chatTextInput by remember { mutableStateOf("") }
     var isRecordingVoice by remember { mutableStateOf(false) }
-    var recordingDurationSec by remember { mutableStateOf(0) }
+    var recordingDurationSec by remember { mutableIntStateOf(0) }
     var replyingToMessage by remember { mutableStateOf<ReplyTarget?>(null) }
+
+    // BUG 1 fix: Periodic ticker to trigger recomposition every 60s for time formatting update
+    var ticker by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60000)
+            ticker++
+        }
+    }
+
+    // BUG 6 fix: Real Voice Recorder setup with permission handler
+    val voiceRecorder = remember { VoiceRecorder(context) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            isRecordingVoice = true
+        } else {
+            Toast.makeText(context, "Permission microphone requise pour enregistrer", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceRecorder.cancel()
+        }
+    }
 
     LaunchedEffect(isRecordingVoice) {
         if (isRecordingVoice) {
             recordingDurationSec = 0
-            try {
-                val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
-                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
-            } catch (_: Exception) {}
-
-            while (isRecordingVoice) {
-                delay(1000)
-                recordingDurationSec++
+            val started = voiceRecorder.start()
+            if (!started) {
+                isRecordingVoice = false
+                Toast.makeText(context, "Impossible de démarrer l'enregistrement", Toast.LENGTH_SHORT).show()
+            } else {
+                playBeep(ToneGenerator.TONE_PROP_BEEP, 100)
+                while (isRecordingVoice) {
+                    delay(1000)
+                    recordingDurationSec++
+                    if (recordingDurationSec >= 120) { // Limit to 2 min
+                        break
+                    }
+                }
             }
         }
     }
 
-    // Dynamically filter and rename conversations depending on user role
-    val displayConversations = remember(rawConversations, activeRole, userProfile) {
+    // Dynamically filter and rename conversations depending on user role & ticker
+    val displayConversations = remember(rawConversations, activeRole, userProfile, ticker) {
         if (activeRole == "Admin") {
             rawConversations.map { conv ->
                 if (conv.id == "conv-3") {
@@ -173,7 +229,8 @@ fun MessagesView(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(displayConversations) { conv ->
+                        // BUG 2 fix: Stable key for LazyColumn conversation items
+                        items(displayConversations, key = { it.id }) { conv ->
                             val isSupportChannel = conv.id == "conv-3"
                             ConversationRowItem(
                                 conversation = conv,
@@ -185,13 +242,38 @@ fun MessagesView(
                 }
             }
         } else {
-            // Chat Detail Pane (WhatsApp Style - Fixed Header & IME Aware Layout)
+            // Chat Detail Pane (WhatsApp Style)
             val currentChat = activeChatSession
             val listState = rememberLazyListState()
 
+            // BUG 3 fix: Smart auto-scroll logic
+            val isNearBottom by remember {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    val totalItems = listState.layoutInfo.totalItemsCount
+                    totalItems == 0 || lastVisible >= totalItems - 2
+                }
+            }
+
             LaunchedEffect(currentChat.messages.size) {
-                if (currentChat.messages.isNotEmpty()) {
+                if (currentChat.messages.isNotEmpty() && isNearBottom) {
                     listState.animateScrollToItem(currentChat.messages.size - 1)
+                }
+            }
+
+            val sendMessageAndScroll: (String, String, String) -> Unit = { textToSend, rText, rSender ->
+                viewModel.sendMessage(
+                    currentChat.id,
+                    textToSend,
+                    replyToText = rText,
+                    replyToSender = rSender
+                )
+                chatTextInput = ""
+                replyingToMessage = null
+                coroutineScope.launch {
+                    if (currentChat.messages.isNotEmpty()) {
+                        listState.animateScrollToItem((currentChat.messages.size).coerceAtLeast(0))
+                    }
                 }
             }
 
@@ -200,9 +282,9 @@ fun MessagesView(
                     .fillMaxSize()
                     .imePadding()
             ) {
-                // FIXED WHATSAPP HEADER BAR (Always pinned at top)
+                // FIXED WHATSAPP HEADER BAR
                 Surface(
-                    color = Color(0xFF007A5E), // WhatsApp Emerald Green
+                    color = Color(0xFF007A5E),
                     shadowElevation = 4.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -369,7 +451,8 @@ fun MessagesView(
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(currentChat.messages) { message ->
+                    // BUG 2 fix: Stable key for message items
+                    items(currentChat.messages, key = { it.id }) { message ->
                         val isMe = if (activeRole == "Admin") {
                             message.sender == "admin"
                         } else {
@@ -416,6 +499,7 @@ fun MessagesView(
                                     horizontalAlignment = if (isMe) Alignment.End else Alignment.Start,
                                     modifier = Modifier.widthIn(max = 280.dp)
                                 ) {
+                                    // BUG 4 fix: Remove .clickable from bubble Box. Long click reserved for reply.
                                     Box(
                                         modifier = Modifier
                                             .clip(
@@ -434,9 +518,12 @@ fun MessagesView(
                                                 color = Color(0xFFCBD5E1),
                                                 shape = RoundedCornerShape(12.dp)
                                             )
-                                            .clickable {
-                                                replyingToMessage = ReplyTarget(senderName = senderName, messageText = displayMsgText)
-                                            }
+                                            .combinedClickable(
+                                                onLongClick = {
+                                                    replyingToMessage = ReplyTarget(senderName = senderName, messageText = displayMsgText)
+                                                },
+                                                onClick = {}
+                                            )
                                             .padding(horizontal = 12.dp, vertical = 8.dp)
                                     ) {
                                         Column {
@@ -505,14 +592,38 @@ fun MessagesView(
                                             fontSize = 9.sp,
                                             color = Color(0xFF6B7280)
                                         )
+                                        // BUG 8 fix: Visual sending status (SENDING, SENT, FAILED with retry)
                                         if (isMe) {
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Distribué",
-                                                tint = Color(0xFF10B981),
-                                                modifier = Modifier.size(12.dp)
-                                            )
+                                            when (message.status) {
+                                                MessageStatus.SENDING -> {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(10.dp),
+                                                        strokeWidth = 1.5.dp,
+                                                        color = Color(0xFF9CA3AF)
+                                                    )
+                                                }
+                                                MessageStatus.SENT -> {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "Distribué",
+                                                        tint = Color(0xFF10B981),
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                                MessageStatus.FAILED -> {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ErrorOutline,
+                                                        contentDescription = "Échec d'envoi. Appuyez pour réessayer.",
+                                                        tint = Color(0xFFEF4444),
+                                                        modifier = Modifier
+                                                            .size(14.dp)
+                                                            .clickable {
+                                                                viewModel.retryMessage(currentChat.id, message.id)
+                                                            }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -621,7 +732,7 @@ fun MessagesView(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Enregistrement vocal... 0:${recordingDurationSec.toString().padStart(2, '0')}",
+                                text = "Enregistrement vocal... ${recordingDurationSec / 60}:${(recordingDurationSec % 60).toString().padStart(2, '0')}",
                                 color = Color(0xFF991B1B),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
@@ -630,7 +741,10 @@ fun MessagesView(
 
                             // Cancel Button
                             IconButton(
-                                onClick = { isRecordingVoice = false },
+                                onClick = {
+                                    isRecordingVoice = false
+                                    voiceRecorder.cancel()
+                                },
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
@@ -646,19 +760,30 @@ fun MessagesView(
                         // Send Voice Note Button
                         IconButton(
                             onClick = {
-                                try {
-                                    val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
-                                    toneGen.startTone(ToneGenerator.TONE_PROP_PROMPT, 100)
-                                } catch (_: Exception) {}
-
-                                viewModel.sendMessage(
-                                    currentChat.id,
-                                    "[VoiceNote:${recordingDurationSec.coerceAtLeast(1)}|Note vocale]",
-                                    replyToText = replyingToMessage?.messageText ?: "",
-                                    replyToSender = replyingToMessage?.senderName ?: ""
-                                )
+                                playBeep(ToneGenerator.TONE_PROP_PROMPT, 100)
                                 isRecordingVoice = false
-                                replyingToMessage = null
+                                val audioFile = voiceRecorder.stop()
+                                val durationSec = recordingDurationSec.coerceAtLeast(1)
+                                if (audioFile != null && audioFile.exists()) {
+                                    coroutineScope.launch {
+                                        val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                            context,
+                                            Uri.fromFile(audioFile),
+                                            folder = "voice_notes"
+                                        )
+                                        val finalUrl = uploadResult.getOrNull()
+                                        if (!finalUrl.isNullOrBlank()) {
+                                            sendMessageAndScroll(
+                                                "[VoiceNote:$durationSec|$finalUrl]",
+                                                replyingToMessage?.messageText ?: "",
+                                                replyingToMessage?.senderName ?: ""
+                                            )
+                                        } else {
+                                            Toast.makeText(context, "Échec d'envoi de la note vocale (serveur)", Toast.LENGTH_SHORT).show()
+                                        }
+                                        audioFile.delete()
+                                    }
+                                }
                             },
                             modifier = Modifier
                                 .size(42.dp)
@@ -673,10 +798,12 @@ fun MessagesView(
                             )
                         }
                     } else {
-                        // Standard text field UI
+                        // BUG 7 fix: Multi-line text field (1 to 5 lines, max 2000 chars)
                         OutlinedTextField(
                             value = chatTextInput,
-                            onValueChange = { chatTextInput = it },
+                            onValueChange = {
+                                if (it.length <= 2000) chatTextInput = it
+                            },
                             placeholder = {
                                 Text(
                                     text = if (activeRole == "Admin") "Répondre au client..." else "Écrire à l'Administrateur NorA...",
@@ -693,15 +820,23 @@ fun MessagesView(
                                 focusedBorderColor = Color(0xFF007A5E),
                                 unfocusedBorderColor = Color(0xFFCBD5E1)
                             ),
-                            singleLine = true
+                            minLines = 1,
+                            maxLines = 5,
+                            singleLine = false
                         )
 
                         Spacer(modifier = Modifier.width(8.dp))
 
                         if (chatTextInput.trim().isEmpty()) {
-                            // Microphone button to start voice recording
+                            // Microphone button to start voice recording with permission check
                             IconButton(
-                                onClick = { isRecordingVoice = true },
+                                onClick = {
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        isRecordingVoice = true
+                                    } else {
+                                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                },
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(CircleShape)
@@ -719,14 +854,11 @@ fun MessagesView(
                             IconButton(
                                 onClick = {
                                     if (chatTextInput.trim().isNotEmpty()) {
-                                        viewModel.sendMessage(
-                                            currentChat.id,
-                                            chatTextInput,
-                                            replyToText = replyingToMessage?.messageText ?: "",
-                                            replyToSender = replyingToMessage?.senderName ?: ""
+                                        sendMessageAndScroll(
+                                            chatTextInput.trim(),
+                                            replyingToMessage?.messageText ?: "",
+                                            replyingToMessage?.senderName ?: ""
                                         )
-                                        chatTextInput = ""
-                                        replyingToMessage = null
                                     }
                                 },
                                 modifier = Modifier
@@ -854,6 +986,7 @@ fun ConversationRowItem(
     }
 }
 
+// BUG 6 fix: ExoPlayer-based VoiceNotePlayer
 @Composable
 fun VoiceNotePlayer(
     messageText: String,
@@ -864,54 +997,51 @@ fun VoiceNotePlayer(
     val rawText = messageText.removePrefix("[VoiceNote:").removeSuffix("]")
     val parts = rawText.split("|", limit = 2)
     val durationStr = parts.getOrNull(0) ?: "5"
-    val transcript = parts.getOrNull(1) ?: ""
+    val audioUrl = parts.getOrNull(1) ?: ""
 
-    val durationSec = remember(durationStr) { durationStr.toIntOrNull()?.coerceAtLeast(2) ?: 5 }
+    val durationSec = remember(durationStr) { durationStr.toIntOrNull()?.coerceAtLeast(1) ?: 5 }
 
     var isPlaying by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var currentPosSec by remember { mutableIntStateOf(0) }
 
-    var ttsRef by remember { mutableStateOf<TextToSpeech?>(null) }
-
-    DisposableEffect(context) {
-        var ttsInstance: TextToSpeech? = null
-        ttsInstance = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                ttsInstance?.language = Locale.FRENCH
+    val exoPlayer = remember(audioUrl) {
+        if (audioUrl.isNotBlank() && (audioUrl.startsWith("http://") || audioUrl.startsWith("https://") || audioUrl.startsWith("content://") || audioUrl.startsWith("file://"))) {
+            ExoPlayer.Builder(context).build().apply {
+                val mediaItem = MediaItem.fromUri(Uri.parse(audioUrl))
+                setMediaItem(mediaItem)
+                prepare()
             }
-        }
-        ttsRef = ttsInstance
-        onDispose {
-            ttsInstance?.stop()
-            ttsInstance?.shutdown()
+        } else {
+            null
         }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            try {
-                val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
-                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
-            } catch (_: Exception) {}
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            exoPlayer?.stop()
+            exoPlayer?.release()
+        }
+    }
 
-            val spokenText = when {
-                transcript.isNotBlank() && transcript != "Note vocale" -> transcript
-                !isMe -> "Message vocal de l'assistance NorA Cameroun. Bonjour, nous avons bien reçu votre message et notre équipe est à votre disposition."
-                else -> "Note vocale transmise à l'administrateur NorA."
-            }
-
-            ttsRef?.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, "Voice_${System.currentTimeMillis()}")
-
-            val totalSteps = durationSec * 10
-            for (i in 1..totalSteps) {
-                if (!isPlaying) break
+    LaunchedEffect(isPlaying, exoPlayer) {
+        if (isPlaying && exoPlayer != null) {
+            exoPlayer.play()
+            while (isPlaying && exoPlayer.isPlaying) {
                 delay(100)
-                progress = i.toFloat() / totalSteps
+                val current = exoPlayer.currentPosition
+                val total = exoPlayer.duration.coerceAtLeast(1L)
+                progress = (current.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                currentPosSec = (current / 1000).toInt()
             }
-
-            ttsRef?.stop()
-            isPlaying = false
-            progress = 0f
+            if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                isPlaying = false
+                progress = 0f
+                currentPosSec = 0
+                exoPlayer.seekTo(0)
+            }
+        } else {
+            exoPlayer?.pause()
         }
     }
 
@@ -922,12 +1052,18 @@ fun VoiceNotePlayer(
     ) {
         IconButton(
             onClick = {
-                if (isPlaying) {
-                    ttsRef?.stop()
-                    isPlaying = false
-                    progress = 0f
+                if (exoPlayer != null) {
+                    if (isPlaying) {
+                        exoPlayer.pause()
+                        isPlaying = false
+                    } else {
+                        if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                            exoPlayer.seekTo(0)
+                        }
+                        isPlaying = true
+                    }
                 } else {
-                    isPlaying = true
+                    Toast.makeText(context, "Audio non disponible", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier
@@ -975,8 +1111,7 @@ fun VoiceNotePlayer(
             ) {
                 Text(
                     text = if (isPlaying) {
-                        val currentSec = (progress * durationSec).toInt()
-                        "0:${currentSec.toString().padStart(2, '0')} / 0:${durationSec.toString().padStart(2, '0')}"
+                        "0:${currentPosSec.toString().padStart(2, '0')} / 0:${durationSec.toString().padStart(2, '0')}"
                     } else {
                         "🎵 0:${durationSec.toString().padStart(2, '0')}"
                     },

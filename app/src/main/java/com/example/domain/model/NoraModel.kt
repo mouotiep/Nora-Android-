@@ -80,24 +80,49 @@ data class ReelVideo(
     val mediaUrl: String = ""
 )
 
+enum class MessageStatus { SENDING, SENT, FAILED }
+
+fun formatMessageTime(timestampMillis: Long): String {
+    val now = System.currentTimeMillis()
+    val diffMinutes = (now - timestampMillis) / 60000
+    return when {
+        diffMinutes < 1 -> "À l'instant"
+        diffMinutes < 60 -> "il y a ${diffMinutes} min"
+        diffMinutes < 24 * 60 -> {
+            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRENCH)
+            sdf.format(java.util.Date(timestampMillis))
+        }
+        else -> {
+            val sdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRENCH)
+            sdf.format(java.util.Date(timestampMillis))
+        }
+    }
+}
+
 data class Message(
+    val id: String = java.util.UUID.randomUUID().toString(),
     val sender: String, // "moi", "contact", or "admin"
     val text: String,
-    val time: String,
+    val timestampMillis: Long = System.currentTimeMillis(),
     val replyToText: String = "",
-    val replyToSender: String = ""
-)
+    val replyToSender: String = "",
+    val status: MessageStatus = MessageStatus.SENT
+) {
+    val time: String get() = formatMessageTime(timestampMillis)
+}
 
 data class Conversation(
     val id: String,
     val contactName: String,
     val lastMessage: String,
-    val lastTime: String,
+    val lastTimestampMillis: Long = System.currentTimeMillis(),
     val messages: List<Message>,
     val userPhone: String = "",
     val userEmail: String = "",
     val userId: String = ""
-)
+) {
+    val lastTime: String get() = formatMessageTime(lastTimestampMillis)
+}
 
 data class Transaction(
     val title: String,
