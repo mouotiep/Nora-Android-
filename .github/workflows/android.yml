@@ -26,6 +26,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Regenerate Gradle Wrapper JAR
+        run: gradle wrapper --gradle-version 9.3.1 --distribution-type=all
+
       - name: Build Debug APK with Gradle Wrapper
         run: ./gradlew :app:assembleDebug --stacktrace
 
