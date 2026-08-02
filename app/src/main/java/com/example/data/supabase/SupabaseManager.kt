@@ -14,9 +14,6 @@ import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.realtime
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -75,7 +72,7 @@ object SupabaseManager {
                     filter {
                         eq("user_id", uid)
                     }
-                }.decodeList<Map<String, Any>>()
+                }.decodeList<AdminCheckDto>()
             if (response.isNotEmpty()) "Admin" else "Acheteur"
         } catch (e: Exception) {
             "Acheteur"
@@ -107,17 +104,17 @@ object SupabaseManager {
                 onboardingCompleted = true
             )
 
-            val profileData = mapOf(
-                "id" to userId,
-                "name" to name,
-                "email" to email.trim(),
-                "whatsapp_number" to whatsapp,
-                "kyc_status" to "Non vérifié",
-                "n_coins_balance" to 1
+            val profileDto = ProfileDto(
+                id = userId,
+                name = name,
+                email = email.trim(),
+                whatsappNumber = whatsapp,
+                kycStatus = "Non vérifié",
+                nCoinsBalance = 1.0
             )
 
             runCatching {
-                c.postgrest.from("profiles").insert(profileData)
+                c.postgrest.from("profiles").insert(profileDto)
             }
 
             Result.success(profile)
@@ -140,12 +137,22 @@ object SupabaseManager {
             val profiles = runCatching {
                 c.postgrest.from("profiles").select {
                     filter { eq("id", user.id) }
-                }.decodeList<Map<String, Any?>>()
+                }.decodeList<ProfileDto>()
             }.getOrDefault(emptyList())
 
             val profile = if (profiles.isNotEmpty()) {
-                val map = profiles.first()
-                parseUserProfile(user.id, map)
+                val dto = profiles.first()
+                UserProfile(
+                    id = dto.id,
+                    name = dto.name,
+                    email = dto.email.ifBlank { user.email ?: email },
+                    whatsappNumber = dto.whatsappNumber,
+                    profilePic = dto.avatarUrl,
+                    kycStatus = dto.kycStatus,
+                    nCoinsBalance = dto.nCoinsBalance,
+                    isLoggedIn = true,
+                    onboardingCompleted = true
+                )
             } else {
                 UserProfile(
                     id = user.id,
@@ -177,21 +184,21 @@ object SupabaseManager {
         val c = client ?: return false
         return try {
             val id = if (product.id.isBlank()) UUID.randomUUID().toString() else product.id
-            val map = mapOf(
-                "id" to id,
-                "title" to product.title,
-                "description" to product.description,
-                "price" to product.price,
-                "stock" to product.stock,
-                "category" to product.category,
-                "shop_name" to product.shopName,
-                "location" to product.location,
-                "image_url" to product.imageUrl,
-                "shop_id" to product.shopId,
-                "is_certified" to product.isCertified,
-                "is_scammer" to product.isScammer
+            val dto = ProductDto(
+                id = id,
+                title = product.title,
+                category = product.category,
+                price = product.price,
+                stock = product.stock,
+                shopName = product.shopName,
+                location = product.location,
+                description = product.description,
+                imageUrl = product.imageUrl,
+                shopId = product.shopId,
+                isCertified = product.isCertified,
+                isScammer = product.isScammer
             )
-            c.postgrest.from("products").upsert(map)
+            c.postgrest.from("products").upsert(dto)
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveProduct Error: ${e.message}", e)
@@ -221,8 +228,23 @@ object SupabaseManager {
         }
 
         try {
-            val list = c.postgrest.from("products").select().decodeList<Map<String, Any?>>()
-            val products = list.map { parseProduct(it) }
+            val list = c.postgrest.from("products").select().decodeList<ProductDto>()
+            val products = list.map { dto ->
+                ProductItem(
+                    id = dto.id,
+                    title = dto.title,
+                    category = dto.category,
+                    price = dto.price,
+                    stock = dto.stock,
+                    shopName = dto.shopName,
+                    location = dto.location,
+                    description = dto.description,
+                    imageUrl = dto.imageUrl,
+                    shopId = dto.shopId,
+                    isCertified = dto.isCertified,
+                    isScammer = dto.isScammer
+                )
+            }
             trySend(products)
         } catch (e: Exception) {
             Log.e(TAG, "Fetch products error: ${e.message}")
@@ -238,22 +260,22 @@ object SupabaseManager {
         val c = client ?: return false
         return try {
             val id = if (reel.id.isBlank()) UUID.randomUUID().toString() else reel.id
-            val map = mapOf(
-                "id" to id,
-                "caption" to reel.caption,
-                "creator_name" to reel.creatorName,
-                "category" to reel.category,
-                "media_type" to reel.mediaType,
-                "media_url" to reel.mediaUrl,
-                "aspect_ratio" to reel.aspectRatio,
-                "zoom_level" to reel.zoomLevel,
-                "rotation_angle" to reel.rotationAngle,
-                "start_sec" to reel.startSec,
-                "end_sec" to reel.endSec,
-                "likes_count" to reel.likesCount,
-                "views_count" to reel.viewsCount
+            val dto = ReelDto(
+                id = id,
+                caption = reel.caption,
+                creatorName = reel.creatorName,
+                category = reel.category,
+                mediaType = reel.mediaType,
+                mediaUrl = reel.mediaUrl,
+                aspectRatio = reel.aspectRatio,
+                zoomLevel = reel.zoomLevel,
+                rotationAngle = reel.rotationAngle,
+                startSec = reel.startSec,
+                endSec = reel.endSec,
+                likesCount = reel.likesCount,
+                viewsCount = reel.viewsCount
             )
-            c.postgrest.from("reels").upsert(map)
+            c.postgrest.from("reels").upsert(dto)
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveReel Error: ${e.message}", e)
@@ -270,8 +292,25 @@ object SupabaseManager {
         }
 
         try {
-            val list = c.postgrest.from("reels").select().decodeList<Map<String, Any?>>()
-            val reels = list.map { parseReel(it) }
+            val list = c.postgrest.from("reels").select().decodeList<ReelDto>()
+            val reels = list.map { dto ->
+                ReelVideo(
+                    id = dto.id,
+                    caption = dto.caption,
+                    creatorName = dto.creatorName,
+                    category = dto.category,
+                    mediaType = dto.mediaType,
+                    mediaUrl = dto.mediaUrl,
+                    aspectRatio = dto.aspectRatio,
+                    zoomLevel = dto.zoomLevel,
+                    rotationAngle = dto.rotationAngle,
+                    startSec = dto.startSec,
+                    endSec = dto.endSec,
+                    likesCount = dto.likesCount,
+                    viewsCount = dto.viewsCount,
+                    isLiked = false
+                )
+            }
             trySend(reels)
         } catch (e: Exception) {
             Log.e(TAG, "Fetch reels error: ${e.message}")
@@ -292,26 +331,26 @@ object SupabaseManager {
     ): Boolean {
         val c = client ?: return false
         return try {
-            val convMap = mapOf(
-                "id" to conversationId,
-                "contact_name" to contactName,
-                "last_message" to message.text,
-                "user_phone" to userPhone,
-                "user_email" to userEmail
+            val convDto = ConversationDto(
+                id = conversationId,
+                contactName = contactName,
+                lastMessage = message.text,
+                userPhone = userPhone,
+                userEmail = userEmail
             )
-            c.postgrest.from("conversations").upsert(convMap)
+            c.postgrest.from("conversations").upsert(convDto)
 
             val msgId = if (message.id.isBlank()) UUID.randomUUID().toString() else message.id
-            val msgMap = mapOf(
-                "id" to msgId,
-                "conversation_id" to conversationId,
-                "sender" to message.sender,
-                "text" to message.text,
-                "reply_to_text" to message.replyToText,
-                "reply_to_sender" to message.replyToSender,
-                "status" to message.status.name
+            val msgDto = MessageDto(
+                id = msgId,
+                conversationId = conversationId,
+                sender = message.sender,
+                text = message.text,
+                replyToText = message.replyToText,
+                replyToSender = message.replyToSender,
+                status = message.status.name
             )
-            c.postgrest.from("messages").insert(msgMap)
+            c.postgrest.from("messages").insert(msgDto)
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveMessage Error: ${e.message}", e)
@@ -328,44 +367,31 @@ object SupabaseManager {
         }
 
         try {
-            val convs = c.postgrest.from("conversations").select().decodeList<Map<String, Any?>>()
-            val msgs = c.postgrest.from("messages").select().decodeList<Map<String, Any?>>()
+            val convs = c.postgrest.from("conversations").select().decodeList<ConversationDto>()
+            val msgs = c.postgrest.from("messages").select().decodeList<MessageDto>()
 
-            val msgsByConvId = msgs.groupBy { (it["conversation_id"] as? String) ?: "" }
+            val msgsByConvId = msgs.groupBy { it.conversationId }
 
-            val list = convs.map { cMap ->
-                val id = (cMap["id"] as? String) ?: ""
-                val contactName = (cMap["contact_name"] as? String) ?: "Utilisateur NorA"
-                val lastMsg = (cMap["last_message"] as? String) ?: ""
-                val phone = (cMap["user_phone"] as? String) ?: ""
-                val email = (cMap["user_email"] as? String) ?: ""
-
-                val conversationMessages = msgsByConvId[id]?.map { mData ->
-                    val mId = (mData["id"] as? String) ?: UUID.randomUUID().toString()
-                    val sender = (mData["sender"] as? String) ?: "moi"
-                    val text = (mData["text"] as? String) ?: ""
-                    val replyToText = (mData["reply_to_text"] as? String) ?: ""
-                    val replyToSender = (mData["reply_to_sender"] as? String) ?: ""
-                    val statusStr = (mData["status"] as? String) ?: "SENT"
-                    val status = try { MessageStatus.valueOf(statusStr) } catch (_: Exception) { MessageStatus.SENT }
-
+            val list = convs.map { cDto ->
+                val conversationMessages = msgsByConvId[cDto.id]?.map { mDto ->
+                    val status = try { MessageStatus.valueOf(mDto.status) } catch (_: Exception) { MessageStatus.SENT }
                     Message(
-                        id = mId,
-                        sender = sender,
-                        text = text,
-                        replyToText = replyToText,
-                        replyToSender = replyToSender,
+                        id = mDto.id,
+                        sender = mDto.sender,
+                        text = mDto.text,
+                        replyToText = mDto.replyToText,
+                        replyToSender = mDto.replyToSender,
                         status = status
                     )
                 } ?: emptyList()
 
                 Conversation(
-                    id = id,
-                    contactName = contactName,
-                    lastMessage = lastMsg,
+                    id = cDto.id,
+                    contactName = cDto.contactName,
+                    lastMessage = cDto.lastMessage,
                     messages = conversationMessages,
-                    userPhone = phone,
-                    userEmail = email
+                    userPhone = cDto.userPhone,
+                    userEmail = cDto.userEmail
                 )
             }
             trySend(list)
@@ -404,11 +430,11 @@ object SupabaseManager {
     suspend fun recordWalletEvent(userId: String, eventType: String, amount: Double, meta: String = ""): Result<Unit> {
         val c = client ?: return Result.failure(IllegalStateException("Supabase non disponible"))
         return try {
-            val data = mapOf(
-                "user_id" to userId,
-                "event_type" to eventType,
-                "amount" to amount,
-                "meta" to meta
+            val data = WalletEventDto(
+                userId = userId,
+                eventType = eventType,
+                amount = amount,
+                meta = meta
             )
             c.postgrest.from("wallet_events").insert(data)
             Result.success(Unit)
@@ -423,13 +449,13 @@ object SupabaseManager {
         return try {
             val response = c.postgrest.from("products").select {
                 filter { eq("id", productId) }
-            }.decodeList<Map<String, Any?>>()
+            }.decodeList<ProductStockDto>()
 
             if (response.isEmpty()) return Result.failure(IllegalStateException("Produit introuvable"))
-            val stock = ((response.first()["stock"] as? Number)?.toInt()) ?: 0
+            val stock = response.first().stock
             if (stock < quantity) return Result.failure(IllegalStateException("Stock insuffisant"))
 
-            c.postgrest.from("products").update(mapOf("stock" to stock - quantity)) {
+            c.postgrest.from("products").update(ProductStockDto(stock = stock - quantity)) {
                 filter { eq("id", productId) }
             }
             Result.success(Unit)
@@ -437,59 +463,5 @@ object SupabaseManager {
             Log.e(TAG, "purchaseProduct Error: ${e.message}", e)
             Result.failure(e)
         }
-    }
-
-    // --- MAPPERS ---
-
-    private fun parseUserProfile(id: String, map: Map<String, Any?>): UserProfile {
-        return UserProfile(
-            id = id,
-            name = (map["name"] as? String) ?: "Visiteur",
-            email = (map["email"] as? String) ?: "",
-            whatsappNumber = (map["whatsapp_number"] as? String) ?: "",
-            profilePic = (map["avatar_url"] as? String) ?: "",
-            kycStatus = (map["kyc_status"] as? String) ?: "Non vérifié",
-            nCoinsBalance = ((map["n_coins_balance"] as? Number)?.toDouble()) ?: 1.0,
-            isLoggedIn = true,
-            onboardingCompleted = true
-        )
-    }
-
-    private fun parseProduct(map: Map<String, Any?>): ProductItem {
-        val id = (map["id"] as? String) ?: UUID.randomUUID().toString()
-        return ProductItem(
-            id = id,
-            title = (map["title"] as? String) ?: (map["name"] as? String) ?: "",
-            category = (map["category"] as? String) ?: "",
-            price = ((map["price"] as? Number)?.toInt()) ?: 0,
-            stock = ((map["stock"] as? Number)?.toInt()) ?: 0,
-            shopName = (map["shop_name"] as? String) ?: "",
-            location = (map["location"] as? String) ?: "",
-            description = (map["description"] as? String) ?: "",
-            imageUrl = (map["image_url"] as? String) ?: "",
-            shopId = (map["shop_id"] as? String) ?: "",
-            isCertified = (map["is_certified"] as? Boolean) ?: true,
-            isScammer = (map["is_scammer"] as? Boolean) ?: false
-        )
-    }
-
-    private fun parseReel(map: Map<String, Any?>): ReelVideo {
-        val id = (map["id"] as? String) ?: UUID.randomUUID().toString()
-        return ReelVideo(
-            id = id,
-            caption = (map["caption"] as? String) ?: "",
-            creatorName = (map["creator_name"] as? String) ?: "",
-            category = (map["category"] as? String) ?: "Mode & Vêtements",
-            mediaType = (map["media_type"] as? String) ?: "Vidéo",
-            mediaUrl = (map["media_url"] as? String) ?: "",
-            aspectRatio = (map["aspect_ratio"] as? String) ?: "9:16",
-            zoomLevel = ((map["zoom_level"] as? Number)?.toFloat()) ?: 1f,
-            rotationAngle = ((map["rotation_angle"] as? Number)?.toFloat()) ?: 0f,
-            startSec = ((map["start_sec"] as? Number)?.toFloat()) ?: 0f,
-            endSec = ((map["end_sec"] as? Number)?.toFloat()) ?: 0f,
-            likesCount = ((map["likes_count"] as? Number)?.toInt()) ?: 0,
-            viewsCount = ((map["views_count"] as? Number)?.toInt()) ?: 0,
-            isLiked = false
-        )
     }
 }
