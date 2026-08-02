@@ -132,7 +132,7 @@ class NoraRepositoryImpl : NoraRepository {
         val updated = listOf(product) + _products.value
         _products.value = updated
         scope.launch {
-            try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
+            try { com.example.data.supabase.SupabaseManager.saveProductToSupabase(product) } catch (_: Exception) {}
         }
     }
 
@@ -140,14 +140,14 @@ class NoraRepositoryImpl : NoraRepository {
         val updated = _products.value.map { if (it.id == product.id) product else it }
         _products.value = updated
         scope.launch {
-            try { com.example.data.firebase.FirebaseManager.saveProductToFirestore(product) } catch (_: Exception) {}
+            try { com.example.data.supabase.SupabaseManager.saveProductToSupabase(product) } catch (_: Exception) {}
         }
     }
 
     override suspend fun deleteProduct(productId: String) {
         _products.value = _products.value.filter { it.id != productId }
         scope.launch {
-            try { com.example.data.firebase.FirebaseManager.deleteProductFromFirestore(productId) } catch (_: Exception) {}
+            try { com.example.data.supabase.SupabaseManager.deleteProductFromSupabase(productId) } catch (_: Exception) {}
         }
     }
 
@@ -155,7 +155,7 @@ class NoraRepositoryImpl : NoraRepository {
         val updated = listOf(reel) + _reels.value
         _reels.value = updated
         scope.launch {
-            try { com.example.data.firebase.FirebaseManager.saveReelToFirestore(reel) } catch (_: Exception) {}
+            try { com.example.data.supabase.SupabaseManager.saveReelToSupabase(reel) } catch (_: Exception) {}
         }
     }
 

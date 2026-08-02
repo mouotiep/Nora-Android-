@@ -855,17 +855,17 @@ fun ReelsView(
                                     isUploadingReel = true
                                     var finalMediaUrl = selectedUri.toString()
 
-                                    // Upload file to Firebase Storage if selected from local gallery
+                                    // Upload file to Supabase Storage if selected from local gallery
                                     if (finalMediaUrl.startsWith("content://") || finalMediaUrl.startsWith("file://")) {
-                                        Toast.makeText(context, "⏳ Téléversement du média sur Firebase Storage...", Toast.LENGTH_SHORT).show()
-                                        val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                        Toast.makeText(context, "⏳ Téléversement du média sur Supabase Storage...", Toast.LENGTH_SHORT).show()
+                                        val uploadResult = com.example.data.supabase.SupabaseManager.uploadFileToStorage(
                                             context = context,
                                             uri = selectedUri!!,
                                             folder = "reels"
                                         )
                                         if (uploadResult.isFailure) {
                                             val err = uploadResult.exceptionOrNull()?.message ?: "Erreur de stockage"
-                                            Toast.makeText(context, "❌ Échec de l'envoi du média sur Firebase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "❌ Échec de l'envoi du média sur Supabase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
                                             isUploadingReel = false
                                             return@launch
                                         }

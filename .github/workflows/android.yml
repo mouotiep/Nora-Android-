@@ -24,10 +24,10 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
 
-      - name: Build Debug APK with Gradle
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Build Debug APK with Gradle Wrapper
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

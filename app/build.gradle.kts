@@ -17,7 +17,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.noracameroun.hqvyzp"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
@@ -69,6 +69,12 @@ secrets {
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
+  implementation(platform(libs.supabase.bom))
+  implementation(libs.supabase.postgrest)
+  implementation(libs.supabase.auth)
+  implementation(libs.supabase.storage)
+  implementation(libs.supabase.realtime)
+  implementation(libs.ktor.client.okhttp)
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)

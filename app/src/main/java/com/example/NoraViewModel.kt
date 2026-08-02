@@ -730,16 +730,16 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            val res = com.example.data.firebase.FirebaseManager.signInWithEmail(trimmedEmail, password)
+            val res = com.example.data.supabase.SupabaseManager.signInWithEmail(trimmedEmail, password)
             res.onSuccess { profile ->
-                val role = com.example.data.firebase.FirebaseManager.resolveActiveRole(profile.id)
+                val role = com.example.data.supabase.SupabaseManager.resolveActiveRole(profile.id)
                 _userProfile.value = profile.copy(isLoggedIn = true)
                 _activeRole.value = role
                 _walletNCoins.value = profile.nCoinsBalance
                 onResult(true, null)
             }.onFailure { err ->
-                Log.e("NoraViewModel", "Firebase Auth sign in failed", err)
-                onResult(false, err.localizedMessage ?: "Échec de la connexion Firebase. Vérifiez vos identifiants ou votre connexion réseau.")
+                Log.e("NoraViewModel", "Supabase Auth sign in failed", err)
+                onResult(false, err.localizedMessage ?: "Échec de la connexion Supabase. Vérifiez vos identifiants ou votre connexion réseau.")
             }
         }
     }
@@ -787,7 +787,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            val res = com.example.data.firebase.FirebaseManager.signUpWithEmail(trimmedEmail, password, "Nouveau Membre", formattedWhatsapp)
+            val res = com.example.data.supabase.SupabaseManager.signUpWithEmail(trimmedEmail, password, "Nouveau Membre", formattedWhatsapp)
             res.onSuccess { profile ->
                 _userProfile.value = profile.copy(isLoggedIn = true)
                 _walletNCoins.value = 1.0
@@ -799,14 +799,14 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
                 onResult(true, null)
             }.onFailure { err ->
-                Log.e("NoraViewModel", "Firebase Auth sign up failed", err)
-                onResult(false, err.localizedMessage ?: "Échec de l'inscription Firebase. Cet email est peut-être déjà utilisé.")
+                Log.e("NoraViewModel", "Supabase Auth sign up failed", err)
+                onResult(false, err.localizedMessage ?: "Échec de l'inscription Supabase. Cet email est peut-être déjà utilisé.")
             }
         }
     }
 
     fun logoutUser() {
-        com.example.data.firebase.FirebaseManager.signOut()
+        com.example.data.supabase.SupabaseManager.signOut()
         releaseSubAdmin()
         _userProfile.value = UserProfile()
         _activeRole.value = "Acheteur"
@@ -1201,12 +1201,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             startSec = startSec,
             endSec = endSec
         )
-        val saved = com.example.data.firebase.FirebaseManager.saveReelToFirestore(newReel)
+        val saved = com.example.data.supabase.SupabaseManager.saveReelToSupabase(newReel)
         return if (saved) {
             _reels.update { listOf(newReel) + it }
             Result.success(newReel)
         } else {
-            Result.failure(IllegalStateException("Échec de l'enregistrement dans Firestore. Vérifiez votre connexion internet et les règles Firebase."))
+            Result.failure(IllegalStateException("Échec de l'enregistrement dans Supabase. Vérifiez votre connexion internet."))
         }
     }
 
@@ -1408,12 +1408,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             offersDelivery = offersDelivery,
             deliveryCost = deliveryCost
         )
-        val saved = com.example.data.firebase.FirebaseManager.saveProductToFirestore(newProduct)
+        val saved = com.example.data.supabase.SupabaseManager.saveProductToSupabase(newProduct)
         return if (saved) {
             _products.update { it + newProduct }
             Result.success(newProduct)
         } else {
-            Result.failure(IllegalStateException("Échec de l'enregistrement du produit dans Firestore. Vérifiez votre connexion."))
+            Result.failure(IllegalStateException("Échec de l'enregistrement du produit dans Supabase. Vérifiez votre connexion."))
         }
     }
 
@@ -1471,7 +1471,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 nList
             }
             viewModelScope.launch {
-                com.example.data.firebase.FirebaseManager.recordWalletEvent(
+                com.example.data.supabase.SupabaseManager.recordWalletEvent(
                     userId = activeUser.id,
                     eventType = "PURCHASE_DISCOUNT",
                     amount = -coinsUsedForDiscount,
@@ -1480,7 +1480,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Reduce stock atomically in Firestore & locally
+        // Reduce stock atomically in Supabase & locally
         _products.update { pList ->
             pList.map { p ->
                 if (p.id == product.id) {
@@ -1491,7 +1491,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch {
-            com.example.data.firebase.FirebaseManager.purchaseProductAtomic(product.id, 1)
+            com.example.data.supabase.SupabaseManager.purchaseProductAtomic(product.id, 1)
         }
 
         // Adapt user interest automatically based on this purchased product
@@ -1680,13 +1680,13 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Save message to online Firebase database
+        // Save message to online Supabase database
         viewModelScope.launch {
             val currentConv = _conversations.value.find { it.id == conversationId }
             val contactName = currentConv?.contactName ?: "Utilisateur NorA"
             val uPhone = currentConv?.userPhone ?: _userProfile.value.whatsappNumber
             val uEmail = currentConv?.userEmail ?: _userProfile.value.email
-            val success = com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+            val success = com.example.data.supabase.SupabaseManager.saveMessageToSupabase(
                 conversationId = conversationId,
                 contactName = contactName,
                 message = newMsg.copy(status = MessageStatus.SENT),
@@ -1743,7 +1743,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 try {
                     val currentConv = _conversations.value.find { it.id == conversationId }
-                    com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                    com.example.data.supabase.SupabaseManager.saveMessageToSupabase(
                         conversationId = conversationId,
                         contactName = currentConv?.contactName ?: "NorA Support",
                         message = adminReplyMsg
@@ -1773,7 +1773,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             val contactName = conv.contactName.ifBlank { "Utilisateur NorA" }
             val uPhone = conv.userPhone.ifBlank { _userProfile.value.whatsappNumber }
             val uEmail = conv.userEmail.ifBlank { _userProfile.value.email }
-            val success = com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+            val success = com.example.data.supabase.SupabaseManager.saveMessageToSupabase(
                 conversationId = conversationId,
                 contactName = contactName,
                 message = targetMsg.copy(status = MessageStatus.SENT),
@@ -1838,7 +1838,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                com.example.data.supabase.SupabaseManager.saveMessageToSupabase(
                     conversationId = convId,
                     contactName = cleanName,
                     message = msg
@@ -1895,7 +1895,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _currentTabIndex.value = 2
         viewModelScope.launch {
             try {
-                com.example.data.firebase.FirebaseManager.saveMessageToFirestore(
+                com.example.data.supabase.SupabaseManager.saveMessageToSupabase(
                     conversationId = convId,
                     contactName = cleanName,
                     message = msg,
@@ -2231,11 +2231,11 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // 6. Connect to online Firebase Firestore real-time synchronization
+        // 6. Connect to online Supabase database real-time synchronization
         viewModelScope.launch {
             try {
-                com.example.data.firebase.FirebaseManager.ensureAuthenticated()
-                com.example.data.firebase.FirebaseManager.getConversationsRealtime().collect { remoteConvs ->
+                com.example.data.supabase.SupabaseManager.ensureAuthenticated()
+                com.example.data.supabase.SupabaseManager.getConversationsRealtime().collect { remoteConvs ->
                     if (remoteConvs.isNotEmpty()) {
                         _conversations.update { localList ->
                             val mergedMap = localList.associateBy { it.id }.toMutableMap()
@@ -2265,7 +2265,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                com.example.data.firebase.FirebaseManager.getProductsRealtime().collect { remoteProds ->
+                com.example.data.supabase.SupabaseManager.getProductsRealtime().collect { remoteProds ->
                     if (remoteProds.isNotEmpty()) {
                         _products.update { localList ->
                             val localIds = localList.map { it.id }.toSet()
@@ -2281,7 +2281,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                com.example.data.firebase.FirebaseManager.getReelsRealtime().collect { remoteReels ->
+                com.example.data.supabase.SupabaseManager.getReelsRealtime().collect { remoteReels ->
                     if (remoteReels.isNotEmpty()) {
                         _reels.update { localList ->
                             val localIds = localList.map { it.id }.toSet()

@@ -766,7 +766,7 @@ fun MessagesView(
                                 val durationSec = recordingDurationSec.coerceAtLeast(1)
                                 if (audioFile != null && audioFile.exists()) {
                                     coroutineScope.launch {
-                                        val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                        val uploadResult = com.example.data.supabase.SupabaseManager.uploadFileToStorage(
                                             context,
                                             Uri.fromFile(audioFile),
                                             folder = "voice_notes"

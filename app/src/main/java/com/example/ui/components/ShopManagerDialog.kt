@@ -544,15 +544,15 @@ fun ShopManagerDialog(
                                                         var finalImageUrl = newProdImageUrl
 
                                                         if (newProdImageUrl.startsWith("content://") || newProdImageUrl.startsWith("file://")) {
-                                                            Toast.makeText(context, "⏳ Téléversement de l'image sur Firebase Storage...", Toast.LENGTH_SHORT).show()
-                                                            val uploadResult = com.example.data.firebase.FirebaseManager.uploadFileToStorage(
+                                                            Toast.makeText(context, "⏳ Téléversement de l'image sur Supabase Storage...", Toast.LENGTH_SHORT).show()
+                                                            val uploadResult = com.example.data.supabase.SupabaseManager.uploadFileToStorage(
                                                                 context = context,
                                                                 uri = Uri.parse(newProdImageUrl),
                                                                 folder = "products"
                                                             )
                                                             if (uploadResult.isFailure) {
                                                                 val err = uploadResult.exceptionOrNull()?.message ?: "Erreur de stockage"
-                                                                Toast.makeText(context, "❌ Échec de l'envoi de l'image sur Firebase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
+                                                                Toast.makeText(context, "❌ Échec de l'envoi de l'image sur Supabase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
                                                                 isUploadingProduct = false
                                                                 return@launch
                                                             }

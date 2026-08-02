@@ -108,9 +108,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
-            com.example.data.firebase.FirebaseManager.initFirebase(applicationContext)
+            com.example.data.supabase.SupabaseManager.initSupabase(applicationContext)
             lifecycleScope.launch {
-                com.example.data.firebase.FirebaseManager.ensureAuthenticated()
+                com.example.data.supabase.SupabaseManager.ensureAuthenticated()
             }
         } catch (e: Throwable) {
             e.printStackTrace()
