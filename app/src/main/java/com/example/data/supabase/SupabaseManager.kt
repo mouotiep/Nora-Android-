@@ -183,9 +183,12 @@ object SupabaseManager {
     suspend fun saveProductToSupabase(product: ProductItem): Boolean {
         val c = client ?: return false
         return try {
+            val uid = currentUserId()
+                ?: return false // Impossible de publier sans être authentifié
             val id = if (product.id.isBlank()) UUID.randomUUID().toString() else product.id
             val dto = ProductDto(
                 id = id,
+                sellerId = uid,
                 title = product.title,
                 category = product.category,
                 price = product.price,
@@ -264,6 +267,7 @@ object SupabaseManager {
             val products = list.map { dto ->
                 ProductItem(
                     id = dto.id,
+                    sellerId = dto.sellerId ?: "",
                     title = dto.title,
                     category = dto.category,
                     price = dto.price,
@@ -291,9 +295,12 @@ object SupabaseManager {
     suspend fun saveReelToSupabase(reel: ReelVideo): Boolean {
         val c = client ?: return false
         return try {
+            val uid = currentUserId()
+                ?: return false // Impossible de publier sans être authentifié
             val id = if (reel.id.isBlank()) UUID.randomUUID().toString() else reel.id
             val dto = ReelDto(
                 id = id,
+                creatorId = uid,
                 caption = reel.caption,
                 creatorName = reel.creatorName,
                 category = reel.category,
@@ -328,6 +335,7 @@ object SupabaseManager {
             val reels = list.map { dto ->
                 ReelVideo(
                     id = dto.id,
+                    creatorId = dto.creatorId ?: "",
                     caption = dto.caption,
                     creatorName = dto.creatorName,
                     category = dto.category,

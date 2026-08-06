@@ -22,6 +22,7 @@ data class AdminCheckDto(
 @Serializable
 data class ProductDto(
     val id: String,
+    @SerialName("seller_id") val sellerId: String? = null,
     val title: String = "",
     val category: String = "",
     val price: Int = 0,
@@ -38,6 +39,7 @@ data class ProductDto(
 @Serializable
 data class ReelDto(
     val id: String,
+    @SerialName("creator_id") val creatorId: String? = null,
     val caption: String = "",
     @SerialName("creator_name") val creatorName: String = "",
     val category: String = "Mode & Vêtements",

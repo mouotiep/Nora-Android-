@@ -2,6 +2,7 @@ package com.example.domain.model
 
 data class ProductItem(
     val id: String,
+    val sellerId: String = "",
     val title: String,
     val category: String,
     val price: Int, // in FCFA
@@ -65,6 +66,7 @@ data class ShopItem(
 
 data class ReelVideo(
     val id: String,
+    val creatorId: String = "",
     val caption: String,
     val creatorName: String,
     val likesCount: Int,
