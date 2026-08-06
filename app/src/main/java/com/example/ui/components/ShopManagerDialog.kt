@@ -575,7 +575,7 @@ fun ShopManagerDialog(
                                                         isUploadingProduct = false
 
                                                         if (result.isSuccess) {
-                                                            Toast.makeText(context, "Produit '$newProdTitle' publié avec succès sur Firebase !", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Produit '$newProdTitle' publié avec succès !", Toast.LENGTH_SHORT).show()
                                                             newProdTitle = ""
                                                             newProdPrice = ""
                                                             newProdStock = ""
@@ -586,7 +586,7 @@ fun ShopManagerDialog(
                                                             showAddForm = false
                                                         } else {
                                                             val err = result.exceptionOrNull()?.message ?: "Erreur inconnue"
-                                                            Toast.makeText(context, "❌ Échec Firestore : $err", Toast.LENGTH_LONG).show()
+                                                            Toast.makeText(context, "❌ Échec de publication : $err", Toast.LENGTH_LONG).show()
                                                         }
                                                     }
                                                 },

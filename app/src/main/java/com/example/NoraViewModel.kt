@@ -274,8 +274,12 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
     )
     val notifications: StateFlow<List<String>> = _notifications.asStateFlow()
 
-    private val _hasUnreadNotifications = MutableStateFlow(true)
+    private val _hasUnreadNotifications = MutableStateFlow(false)
     val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
+
+    private val knownMessageIds = HashSet<String>()
+    private val knownProductIds = HashSet<String>()
+    private val knownReelIds = HashSet<String>()
 
     private val _currentNotification = MutableStateFlow<String?>(null)
     val currentNotification: StateFlow<String?> = _currentNotification.asStateFlow()
@@ -309,7 +313,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        postNotification("La commission de la commande #$orderId a été encaissée avec succès ! ✅")
     }
 
     // Sub-admin states for multi-agent coordination
@@ -796,7 +799,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 _totalUsersCount.update { it + 1 }
                 _activeUsersCount.update { it + 1 }
                 _totalDistributedNCoins.update { it + 1 }
-                postNotification("Nouveau membre inscrit : $trimmedEmail ! 🪙 +1 N-Coin de bienvenue offert !")
                 onResult(true, null)
             }.onFailure { err ->
                 Log.e("NoraViewModel", "Supabase Auth sign up failed", err)
@@ -922,8 +924,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-
-        postNotification("🎉 Votre demande KYC a été validée ! Vous êtes maintenant Vendeur Certifié sur NorA.")
     }
 
     fun deleteKycDocuments(userId: String) {
@@ -1201,12 +1201,17 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             startSec = startSec,
             endSec = endSec
         )
-        val saved = com.example.data.supabase.SupabaseManager.saveReelToSupabase(newReel)
+        val saved = try {
+            com.example.data.supabase.SupabaseManager.saveReelToSupabase(newReel)
+        } catch (e: Exception) {
+            Log.w("NoraViewModel", "Erreur de synchro Supabase Reel: ${e.message}")
+            false
+        }
         return if (saved) {
             _reels.update { listOf(newReel) + it }
             Result.success(newReel)
         } else {
-            Result.failure(IllegalStateException("Échec de l'enregistrement dans Supabase. Vérifiez votre connexion internet."))
+            Result.failure(IllegalStateException("Échec de l'enregistrement dans la base de données Supabase."))
         }
     }
 
@@ -1408,21 +1413,52 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             offersDelivery = offersDelivery,
             deliveryCost = deliveryCost
         )
-        val saved = com.example.data.supabase.SupabaseManager.saveProductToSupabase(newProduct)
+        val saved = try {
+            com.example.data.supabase.SupabaseManager.saveProductToSupabase(newProduct)
+        } catch (e: Exception) {
+            Log.w("NoraViewModel", "Erreur de synchro Supabase Produit: ${e.message}")
+            false
+        }
         return if (saved) {
             _products.update { it + newProduct }
             Result.success(newProduct)
         } else {
-            Result.failure(IllegalStateException("Échec de l'enregistrement du produit dans Supabase. Vérifiez votre connexion."))
+            Result.failure(IllegalStateException("Échec de l'enregistrement du produit dans Supabase."))
         }
     }
 
+    // Deleted IDs tracking to prevent deleted items from re-appearing during Realtime sync
+    private val deletedProductIds = mutableSetOf<String>()
+    private val deletedReelIds = mutableSetOf<String>()
+
     fun deleteProduct(productId: String) {
+        deletedProductIds.add(productId)
         _products.update { list -> list.filter { it.id != productId } }
+        viewModelScope.launch {
+            try {
+                val success = com.example.data.supabase.SupabaseManager.deleteProductFromSupabase(productId)
+                if (!success) {
+                    Log.w("NoraViewModel", "Avertissement: Échec de la suppression du produit $productId dans Supabase")
+                }
+            } catch (e: Exception) {
+                Log.w("NoraViewModel", "Erreur de suppression du produit dans Supabase: ${e.message}")
+            }
+        }
     }
 
     fun deleteReel(reelId: String) {
+        deletedReelIds.add(reelId)
         _reels.update { list -> list.filter { it.id != reelId } }
+        viewModelScope.launch {
+            try {
+                val success = com.example.data.supabase.SupabaseManager.deleteReelFromSupabase(reelId)
+                if (!success) {
+                    Log.w("NoraViewModel", "Avertissement: Échec de la suppression du reel $reelId dans Supabase")
+                }
+            } catch (e: Exception) {
+                Log.w("NoraViewModel", "Erreur de suppression du reel dans Supabase: ${e.message}")
+            }
+        }
     }
 
     fun addToCart(product: ProductItem) {
@@ -1517,9 +1553,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         _orders.update { it + newOrder }
 
-        // Alert administrator via Push Notification with full order details
-        postNotification("🛒 Nouvelle Commande #${newOrder.id} ! Acheteur: ${activeUser.name} (${activeUser.whatsappNumber}) | Produit: ${product.title} | Total: ${if (payInNCoins) "$costInCoins Coins" else "${product.price} FCFA"}")
-
         // Alert the administrator about this order & open a conversation
         _conversations.update { list ->
             val adminConv = list.find { it.id == "conv-3" }
@@ -1575,9 +1608,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-
-        // Post order validation push notification with precise text requested
-        postNotification("Commande validée par l'administrateur. Vous devez livrer. (CMD #$orderId)")
 
         // Log transaction and simulate fee collection/payouts
         val sellerGains = ord.productPrice
@@ -1709,9 +1739,7 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
 
         _lastIncomingMessageConvId.value = conversationId
 
-        if (_activeRole.value == "Admin") {
-            postNotification("Message de NorA Support : ${text.trim()}")
-        } else if (conversationId == "conv-3" || conversationId.contains("admin")) {
+        if (conversationId == "conv-3" || conversationId.contains("admin")) {
             viewModelScope.launch {
                 delay(1200)
                 val replyText = if (text.startsWith("[VoiceNote:")) {
@@ -1792,6 +1820,26 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                     } else c
                 }
             }
+        }
+    }
+
+    fun deleteMessage(conversationId: String, messageId: String) {
+        _conversations.update { list ->
+            list.map { c ->
+                if (c.id == conversationId) {
+                    val updatedMsgs = c.messages.filter { it.id != messageId }
+                    c.copy(
+                        messages = updatedMsgs,
+                        lastMessage = updatedMsgs.lastOrNull()?.text ?: "Aucun message",
+                        lastTimestampMillis = updatedMsgs.lastOrNull()?.timestampMillis ?: c.lastTimestampMillis
+                    )
+                } else c
+            }
+        }
+        viewModelScope.launch {
+            try {
+                com.example.data.supabase.SupabaseManager.deleteMessageFromSupabase(messageId)
+            } catch (_: Exception) {}
         }
     }
 
@@ -1913,7 +1961,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         _kycApplications.update { list ->
             list.filter { it.id != userId }
         }
-        postNotification("Utilisateur supprimé de la base de données.")
     }
 
     fun banUser(userId: String) {
@@ -1936,7 +1983,6 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
         if (_userProfile.value.id == userId) {
             _userProfile.update { it.copy(kycStatus = "Banni") }
         }
-        postNotification("Utilisateur banni de l'application.")
     }
 
     // Update profile
@@ -2237,6 +2283,21 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
                 com.example.data.supabase.SupabaseManager.ensureAuthenticated()
                 com.example.data.supabase.SupabaseManager.getConversationsRealtime().collect { remoteConvs ->
                     if (remoteConvs.isNotEmpty()) {
+                        val isFirstSync = knownMessageIds.isEmpty()
+                        var incomingContactName: String? = null
+                        for (remote in remoteConvs) {
+                            for (m in remote.messages) {
+                                if (!knownMessageIds.contains(m.id)) {
+                                    if (!isFirstSync && m.sender != "user" && m.sender != "admin_self") {
+                                        incomingContactName = remote.contactName
+                                    }
+                                    knownMessageIds.add(m.id)
+                                }
+                            }
+                        }
+                        if (incomingContactName != null) {
+                            postNotification("💬 Nouveau message reçu de $incomingContactName")
+                        }
                         _conversations.update { localList ->
                             val mergedMap = localList.associateBy { it.id }.toMutableMap()
                             for (remote in remoteConvs) {
@@ -2267,11 +2328,21 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 com.example.data.supabase.SupabaseManager.getProductsRealtime().collect { remoteProds ->
                     if (remoteProds.isNotEmpty()) {
-                        _products.update { localList ->
-                            val localIds = localList.map { it.id }.toSet()
-                            val newOnes = remoteProds.filter { it.id !in localIds }
-                            newOnes + localList
+                        val isFirstSync = knownProductIds.isEmpty()
+                        val filteredProds = remoteProds.filter { it.id !in deletedProductIds }
+                        var newlyPublishedProd: ProductItem? = null
+                        for (p in filteredProds) {
+                            if (!knownProductIds.contains(p.id)) {
+                                if (!isFirstSync && _followedShops.value.contains(p.shopId)) {
+                                    newlyPublishedProd = p
+                                }
+                                knownProductIds.add(p.id)
+                            }
                         }
+                        if (newlyPublishedProd != null) {
+                            postNotification("🛍️ La boutique (${newlyPublishedProd.shopName}) que vous suivez a publié un nouveau produit : ${newlyPublishedProd.title}")
+                        }
+                        _products.value = filteredProds
                     }
                 }
             } catch (e: Throwable) {
@@ -2283,11 +2354,21 @@ class NoraViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 com.example.data.supabase.SupabaseManager.getReelsRealtime().collect { remoteReels ->
                     if (remoteReels.isNotEmpty()) {
-                        _reels.update { localList ->
-                            val localIds = localList.map { it.id }.toSet()
-                            val newOnes = remoteReels.filter { it.id !in localIds }
-                            newOnes + localList
+                        val isFirstSync = knownReelIds.isEmpty()
+                        val filteredReels = remoteReels.filter { it.id !in deletedReelIds }
+                        var newlyPublishedReel: com.example.domain.model.ReelVideo? = null
+                        for (r in filteredReels) {
+                            if (!knownReelIds.contains(r.id)) {
+                                if (!isFirstSync && _followedCreators.value.contains(r.creatorName)) {
+                                    newlyPublishedReel = r
+                                }
+                                knownReelIds.add(r.id)
+                            }
                         }
+                        if (newlyPublishedReel != null) {
+                            postNotification("🎬 Publication suivie (${newlyPublishedReel.creatorName}) : ${newlyPublishedReel.caption}")
+                        }
+                        _reels.value = filteredReels
                     }
                 }
             } catch (e: Throwable) {

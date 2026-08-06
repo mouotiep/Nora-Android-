@@ -209,12 +209,44 @@ object SupabaseManager {
     suspend fun deleteProductFromSupabase(productId: String): Boolean {
         val c = client ?: return false
         return try {
+            ensureAuthenticated()
             c.postgrest.from("products").delete {
                 filter { eq("id", productId) }
             }
+            Log.d(TAG, "Produit $productId supprimé avec succès de Supabase.")
             true
         } catch (e: Exception) {
             Log.e(TAG, "deleteProduct Error: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun deleteReelFromSupabase(reelId: String): Boolean {
+        val c = client ?: return false
+        return try {
+            ensureAuthenticated()
+            c.postgrest.from("reels").delete {
+                filter { eq("id", reelId) }
+            }
+            Log.d(TAG, "Reel $reelId supprimé avec succès de Supabase.")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteReel Error: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun deleteMessageFromSupabase(messageId: String): Boolean {
+        val c = client ?: return false
+        return try {
+            ensureAuthenticated()
+            c.postgrest.from("messages").delete {
+                filter { eq("id", messageId) }
+            }
+            Log.d(TAG, "Message $messageId supprimé avec succès de Supabase.")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteMessage Error: ${e.message}", e)
             false
         }
     }

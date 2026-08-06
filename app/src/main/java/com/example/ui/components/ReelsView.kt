@@ -545,8 +545,9 @@ fun ReelsView(
 
         Dialog(onDismissRequest = { showPublishReelDialog = false }) {
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF18181B),
+                border = BorderStroke(1.dp, Color(0xFF27272A)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp)
@@ -556,52 +557,115 @@ fun ReelsView(
                         .padding(20.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    Text(
-                        text = "Publier un Nouveau Reel 🎥",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                    Text(
-                        text = "Importez une vidéo ou photo de votre artisanat et ajustez le cadrage.",
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
+                    // Header TikTok style
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFE2C55)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Videocam,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Publier un Réel NorA",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "NorA Cameroun • Format vertical",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFA1A1AA)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = { showPublishReelDialog = false },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Fermer",
+                                tint = Color(0xFFA1A1AA)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Media Type Selector
-                    Text("Type de Fichier", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    // Media Type Selector (Video / Photo)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF27272A))
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Button(
-                            onClick = { isVideoSelected = true; selectedFileName = null; selectedUri = null; showCroppingControls = false },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
-                                contentColor = if (isVideoSelected) Color.White else Color.Black
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isVideoSelected) Color(0xFFFE2C55) else Color.Transparent)
+                                .clickable { isVideoSelected = true; selectedFileName = null; selectedUri = null; showCroppingControls = false }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.MovieFilter, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Séquence Vidéo", fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.MovieFilter,
+                                    contentDescription = null,
+                                    tint = if (isVideoSelected) Color.White else Color(0xFFA1A1AA),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Séquence Vidéo",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isVideoSelected) Color.White else Color(0xFFA1A1AA)
+                                )
+                            }
                         }
 
-                        Button(
-                            onClick = { isVideoSelected = false; selectedFileName = null; selectedUri = null; showCroppingControls = false },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (!isVideoSelected) Color(0xFF10B981) else Color(0xFFF1F5F9),
-                                contentColor = if (!isVideoSelected) Color.White else Color.Black
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (!isVideoSelected) Color(0xFFFE2C55) else Color.Transparent)
+                                .clickable { isVideoSelected = false; selectedFileName = null; selectedUri = null; showCroppingControls = false }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Photo, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Photo / Image", fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Photo,
+                                    contentDescription = null,
+                                    tint = if (!isVideoSelected) Color.White else Color(0xFFA1A1AA),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Photo / Graphisme",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (!isVideoSelected) Color.White else Color(0xFFA1A1AA)
+                                )
+                            }
                         }
                     }
 
@@ -609,14 +673,14 @@ fun ReelsView(
 
                     // Real File Upload Section
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF27272A)),
+                        border = BorderStroke(1.dp, if (selectedFileName != null) Color(0xFF10B981) else Color(0xFF3F3F46)),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
                                 .clickable {
-                                    // Launch real system media gallery picker on telephone
                                     val mimeType = if (isVideoSelected) "video/*" else "image/*"
                                     mediaPickerLauncher.launch(mimeType)
                                 }
@@ -627,35 +691,64 @@ fun ReelsView(
                             Icon(
                                 imageVector = Icons.Default.CloudUpload,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981),
+                                tint = if (selectedFileName != null) Color(0xFF10B981) else Color(0xFF25F4EE),
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             if (selectedFileName == null) {
-                                Text("Choisir un fichier sur le téléphone 📱", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
-                                Text("Sélectionnez dans la galerie (MP4, MOV, JPG, PNG)", fontSize = 10.sp, color = Color.Gray)
+                                Text(
+                                    text = "Sélectionner depuis la galerie 📱",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = if (isVideoSelected) "Formats acceptés : MP4, MOV, WebM" else "Formats acceptés : JPG, PNG, WEBP",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFA1A1AA)
+                                )
                             } else {
-                                Text("Fichier sélectionné avec succès !", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                                Text(selectedFileName!!, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF334155))
+                                Text(
+                                    text = "✅ Média prêt pour le Reel !",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981)
+                                )
+                                Text(
+                                    text = selectedFileName!!,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("Cliquez pour choisir un autre fichier", fontSize = 9.sp, color = Color.Gray)
+                                Text(
+                                    text = "Toucher pour remplacer le fichier",
+                                    fontSize = 9.sp,
+                                    color = Color(0xFFA1A1AA)
+                                )
                             }
                         }
                     }
 
-                    // Simulated Rogner (Cropping) Interface
+                    // Interactive Video Editing / Cropping Interface
                     if (showCroppingControls && selectedFileName != null) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        Text("Ajuster & Rogner le Fichier ✂️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Text(
+                            text = "Ajustement & Cadrage Réel ✂️",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF25F4EE)
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
 
                         // Live visual player preview box with zoom, rotation & startSec/endSec
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.Black),
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black)
+                                .border(1.dp, Color(0xFF3F3F46), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             if (selectedUri != null) {
@@ -671,20 +764,21 @@ fun ReelsView(
                                 )
                             }
 
-                            // Aspect Ratio overlay boundary
+                            // Aspect Ratio overlay badge
                             Box(
                                 modifier = Modifier
                                     .padding(8.dp)
-                                    .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp))
-                                    .border(
-                                        width = 1.dp,
-                                        color = Color(0xFF10B981),
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
+                                    .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(6.dp))
+                                    .border(1.dp, Color(0xFFFE2C55), RoundedCornerShape(6.dp))
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                                     .align(Alignment.BottomEnd)
                             ) {
-                                Text("Format: $cropAspectRatio", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Ratio: $cropAspectRatio",
+                                    fontSize = 9.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
 
@@ -698,17 +792,17 @@ fun ReelsView(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("Recadrage:", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                Text("Format :", fontSize = 10.sp, color = Color(0xFFA1A1AA), modifier = Modifier.width(60.dp))
                                 listOf("9:16", "1:1", "4:5").forEach { ratio ->
                                     val isSel = cropAspectRatio == ratio
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                            .background(if (isSel) Color(0xFFFE2C55) else Color(0xFF27272A))
                                             .clickable { cropAspectRatio = ratio }
                                             .padding(horizontal = 10.dp, vertical = 5.dp)
                                     ) {
-                                        Text(ratio, fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                                        Text(ratio, fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -718,12 +812,16 @@ fun ReelsView(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Zoom: ${String.format("%.1f", cropZoomLevel)}x", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                Text("Zoom: ${String.format("%.1f", cropZoomLevel)}x", fontSize = 10.sp, color = Color(0xFFA1A1AA), modifier = Modifier.width(60.dp))
                                 Slider(
                                     value = cropZoomLevel,
                                     onValueChange = { cropZoomLevel = it },
                                     valueRange = 1.0f..3.0f,
-                                    colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = Color(0xFF25F4EE),
+                                        activeTrackColor = Color(0xFF25F4EE),
+                                        inactiveTrackColor = Color(0xFF3F3F46)
+                                    ),
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -734,38 +832,42 @@ fun ReelsView(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("Rotation:", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(64.dp))
+                                Text("Rotation:", fontSize = 10.sp, color = Color(0xFFA1A1AA), modifier = Modifier.width(60.dp))
                                 listOf(0f, 90f, 180f, 270f).forEach { angle ->
                                     val isSel = cropRotationAngle == angle
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                            .background(if (isSel) Color(0xFFFE2C55) else Color(0xFF27272A))
                                             .clickable { cropRotationAngle = angle }
                                             .padding(horizontal = 8.dp, vertical = 5.dp)
                                     ) {
-                                        Text("${angle.toInt()}°", fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                                        Text("${angle.toInt()}°", fontSize = 9.sp, color = Color.White)
                                     }
                                 }
                             }
 
-                            // Video-specific temporal trimming sliders (Début & Fin)
+                            // Video temporal trimming sliders
                             if (isVideoSelected) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Divider(color = Color(0xFFE2E8F0))
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text("Rognage Temporel (Sélectionnez début et fin) ⏱️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                 Spacer(modifier = Modifier.height(6.dp))
+                                HorizontalDivider(color = Color(0xFF27272A))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text("Découpage vidéo (Début & Fin) ⏱️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA1A1AA))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Début: ${String.format("%.1f", videoStartSec)}s", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(72.dp))
+                                    Text("Début: ${String.format("%.1f", videoStartSec)}s", fontSize = 10.sp, color = Color(0xFFA1A1AA), modifier = Modifier.width(72.dp))
                                     Slider(
                                         value = videoStartSec,
                                         onValueChange = { videoStartSec = it.coerceAtMost(videoEndSec - 1f) },
                                         valueRange = 0.0f..30.0f,
-                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFF10B981),
+                                            activeTrackColor = Color(0xFF10B981),
+                                            inactiveTrackColor = Color(0xFF3F3F46)
+                                        ),
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -773,17 +875,21 @@ fun ReelsView(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Fin: ${String.format("%.1f", videoEndSec)}s", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.width(72.dp))
+                                    Text("Fin: ${String.format("%.1f", videoEndSec)}s", fontSize = 10.sp, color = Color(0xFFA1A1AA), modifier = Modifier.width(72.dp))
                                     Slider(
                                         value = videoEndSec,
                                         onValueChange = { videoEndSec = it.coerceAtLeast(videoStartSec + 1f) },
-                                        valueRange = 1.0f..60.0f,
-                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF10B981), activeTrackColor = Color(0xFF10B981)),
+                                        valueRange = 1.0f..120.0f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFF10B981),
+                                            activeTrackColor = Color(0xFF10B981),
+                                            inactiveTrackColor = Color(0xFF3F3F46)
+                                        ),
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
                                 Text(
-                                    text = "Durée du clip vidéo : ${String.format("%.1f", videoEndSec - videoStartSec)} secondes (Rogné)",
+                                    text = "Durée du clip : ${String.format("%.1f", videoEndSec - videoStartSec)} secondes",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981)
@@ -794,18 +900,53 @@ fun ReelsView(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Text fields
+                    // Caption Input with TikTok Hashtags
                     OutlinedTextField(
                         value = captionInput,
                         onValueChange = { captionInput = it },
-                        label = { Text("Légende de la vidéo / Description", fontSize = 12.sp) },
+                        label = { Text("Légende & Hashtags", fontSize = 11.sp, color = Color(0xFFA1A1AA)) },
+                        placeholder = { Text("Décrivez votre création... #Artisanat #NorA #Cameroun", fontSize = 11.sp, color = Color(0xFF52525B)) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF27272A),
+                            unfocusedContainerColor = Color(0xFF27272A),
+                            focusedBorderColor = Color(0xFF25F4EE),
+                            unfocusedBorderColor = Color(0xFF3F3F46),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Text("Catégorie de l'Artisanat", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    // Quick Hashtag suggestion pills
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("#Artisanat", "#Cameroun", "#Mode", "#FaitMain", "#NorA").forEach { tag ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF27272A))
+                                    .border(0.5.dp, Color(0xFF3F3F46), RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        if (!captionInput.contains(tag)) {
+                                            captionInput = if (captionInput.isBlank()) tag else "$captionInput $tag"
+                                        }
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(tag, fontSize = 9.sp, color = Color(0xFF25F4EE), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text("Catégorie", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA1A1AA))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -814,12 +955,12 @@ fun ReelsView(
                             val isSel = categoryInput == cat
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSel) Color(0xFF10B981) else Color(0xFFF1F5F9))
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) Color(0xFFFE2C55) else Color(0xFF27272A))
                                     .clickable { categoryInput = cat }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(cat, fontSize = 9.sp, color = if (isSel) Color.White else Color.Black)
+                                Text(cat, fontSize = 10.sp, color = Color.White, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
                             }
                         }
                     }
@@ -828,24 +969,27 @@ fun ReelsView(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = { showPublishReelDialog = false }) { Text("Annuler") }
+                        TextButton(onClick = { showPublishReelDialog = false }) {
+                            Text("Annuler", color = Color(0xFFA1A1AA))
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             enabled = !isUploadingReel,
                             onClick = {
                                 if (selectedFileName == null || selectedUri == null) {
-                                    Toast.makeText(context, "Veuillez sélectionner et importer un fichier depuis votre téléphone", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Veuillez sélectionner une vidéo ou photo depuis votre galerie", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
                                 if (isVideoSelected) {
                                     val videoDuration = videoEndSec - videoStartSec
-                                    if (videoDuration < 30.0f) {
+                                    if (videoDuration < 1.0f) {
                                         Toast.makeText(
                                             context,
-                                            "⚠️ Une vidéo postée ne peut pas durer moins de 30 secondes ! (Durée sélectionnée: ${String.format("%.1f", videoDuration)}s)",
-                                            Toast.LENGTH_LONG
+                                            "⚠️ La durée de la vidéo doit être d'au moins 1 seconde.",
+                                            Toast.LENGTH_SHORT
                                         ).show()
                                         return@Button
                                     }
@@ -855,9 +999,8 @@ fun ReelsView(
                                     isUploadingReel = true
                                     var finalMediaUrl = selectedUri.toString()
 
-                                    // Upload file to Supabase Storage if selected from local gallery
                                     if (finalMediaUrl.startsWith("content://") || finalMediaUrl.startsWith("file://")) {
-                                        Toast.makeText(context, "⏳ Téléversement du média sur Supabase Storage...", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "⏳ Envoi de la vidéo vers Supabase Storage...", Toast.LENGTH_SHORT).show()
                                         val uploadResult = com.example.data.supabase.SupabaseManager.uploadFileToStorage(
                                             context = context,
                                             uri = selectedUri!!,
@@ -865,7 +1008,7 @@ fun ReelsView(
                                         )
                                         if (uploadResult.isFailure) {
                                             val err = uploadResult.exceptionOrNull()?.message ?: "Erreur de stockage"
-                                            Toast.makeText(context, "❌ Échec de l'envoi du média sur Supabase Storage : $err. Publication annulée.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "❌ Échec du téléversement : $err. Publication annulée.", Toast.LENGTH_LONG).show()
                                             isUploadingReel = false
                                             return@launch
                                         }
@@ -887,23 +1030,23 @@ fun ReelsView(
                                     isUploadingReel = false
 
                                     if (publishResult.isSuccess) {
-                                        Toast.makeText(context, "Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "🎉 Votre Reel a été publié avec succès !", Toast.LENGTH_SHORT).show()
                                         showPublishReelDialog = false
                                     } else {
                                         val err = publishResult.exceptionOrNull()?.message ?: "Erreur inconnue"
-                                        Toast.makeText(context, "❌ Échec Firestore : $err", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "❌ Échec de publication : $err", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(8.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFE2C55)),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             if (isUploadingReel) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Téléversement...", fontSize = 11.sp, color = Color.White)
                             } else {
-                                Text("Publier maintenant")
+                                Text("Publier le Reel 🚀", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

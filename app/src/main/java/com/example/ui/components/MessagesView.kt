@@ -48,6 +48,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.example.Conversation
 import com.example.NoraViewModel
 import com.example.R
+import com.example.domain.model.Message
 import com.example.domain.model.MessageStatus
 import com.example.media.VoiceRecorder
 import kotlinx.coroutines.delay
@@ -85,6 +86,7 @@ fun MessagesView(
     var isRecordingVoice by remember { mutableStateOf(false) }
     var recordingDurationSec by remember { mutableIntStateOf(0) }
     var replyingToMessage by remember { mutableStateOf<ReplyTarget?>(null) }
+    var selectedMessageForOptions by remember { mutableStateOf<Message?>(null) }
 
     // BUG 1 fix: Periodic ticker to trigger recomposition every 60s for time formatting update
     var ticker by remember { mutableIntStateOf(0) }
@@ -280,7 +282,6 @@ fun MessagesView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding()
             ) {
                 // FIXED WHATSAPP HEADER BAR
                 Surface(
@@ -291,7 +292,8 @@ fun MessagesView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -305,12 +307,12 @@ fun MessagesView(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
 
                         // Avatar Frame
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(38.dp)
                                 .clip(if (currentChat.id == "conv-3" || activeRole != "Admin") RoundedCornerShape(8.dp) else CircleShape)
                                 .border(1.5.dp, Color.White.copy(alpha = 0.8f), if (currentChat.id == "conv-3" || activeRole != "Admin") RoundedCornerShape(8.dp) else CircleShape)
                                 .background(Color.White),
@@ -333,31 +335,36 @@ fun MessagesView(
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                        // Title & Subtitle
+                        // Title & Subtitle Column
                         Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text(
                                     text = if (activeRole == "Admin") currentChat.contactName else "Administrateur NorA",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                     color = Color.White,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(Color(0xFF25D366))
-                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = if (activeRole == "Admin") "CLIENT" else "SUPPORT OFFICIEL",
+                                        text = if (activeRole == "Admin") "CLIENT" else "SUPPORT",
                                         color = Color.White,
                                         fontSize = 8.sp,
-                                        fontWeight = FontWeight.ExtraBold
+                                        fontWeight = FontWeight.ExtraBold,
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -365,12 +372,16 @@ fun MessagesView(
                             Text(
                                 text = if (activeRole == "Admin") "🟢 Client NorA • Chat Actif" else "🟢 Support NorA • En ligne 24h/7j",
                                 fontSize = 11.sp,
-                                color = Color(0xFFD1FAE5)
+                                color = Color(0xFFD1FAE5),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
-                        // Prominent WhatsApp Direct Action Button
-                        Button(
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        // Compact WhatsApp Direct Action Button
+                        Surface(
                             onClick = {
                                 val phoneClean = currentChat.userPhone.replace(" ", "").replace("+", "")
                                 val targetPhone = if (phoneClean.isNotBlank()) phoneClean else "237655924778"
@@ -382,28 +393,26 @@ fun MessagesView(
                                     Toast.makeText(context, "WhatsApp Support: +237 655 92 47 78", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF25D366),
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            color = Color(0xFF25D366),
                             shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.height(32.dp)
+                            modifier = Modifier.height(30.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Phone,
                                     contentDescription = "WhatsApp",
                                     tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                                 Text(
                                     text = "WhatsApp",
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -411,32 +420,35 @@ fun MessagesView(
                 }
 
                 if (activeRole == "Admin") {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-                        border = BorderStroke(1.dp, Color(0xFF93C5FD)),
-                        shape = RoundedCornerShape(0.dp),
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .padding(horizontal = 12.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "👤 Client : ${currentChat.contactName}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1E40AF)
-                                )
-                                Text(
-                                    text = "📱 WhatsApp : ${currentChat.userPhone.ifBlank { "+237 6xx xxx xxx" }}  |  ✉️ ${currentChat.userEmail.ifBlank { "client@nora.cm" }}",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF1E3A8A)
-                                )
-                            }
+                            Text(
+                                text = "👤 Client : ${currentChat.contactName}  •  📱 ${currentChat.userPhone.ifBlank { "+237 6xx xxx xxx" }}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E40AF),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = currentChat.userEmail.ifBlank { "client@nora.cm" },
+                                fontSize = 10.sp,
+                                color = Color(0xFF2563EB),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
@@ -520,7 +532,7 @@ fun MessagesView(
                                             )
                                             .combinedClickable(
                                                 onLongClick = {
-                                                    replyingToMessage = ReplyTarget(senderName = senderName, messageText = displayMsgText)
+                                                    selectedMessageForOptions = message
                                                 },
                                                 onClick = {}
                                             )
@@ -699,13 +711,20 @@ fun MessagesView(
                 }
 
                 // TextInput Bottom bar
-                Row(
+                Surface(
+                    color = Color(0xFFF0F2F5),
+                    shadowElevation = 4.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFF0F2F5))
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .navigationBarsPadding()
+                        .imePadding()
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     if (isRecordingVoice) {
                         // Live Recording UI
                         Row(
@@ -878,8 +897,87 @@ fun MessagesView(
                     }
                 }
             }
+
+            // Options dialog for selected message
+            selectedMessageForOptions?.let { targetMsg ->
+                val targetSenderName = if (targetMsg.sender == "user" || targetMsg.sender == "admin_self") "Vous" else (activeChatSession?.contactName ?: "Correspondant")
+                val isVoiceNote = targetMsg.text.startsWith("[VoiceNote:")
+                val displayMsgText = if (isVoiceNote) "🎵 Note vocale" else targetMsg.text
+
+                AlertDialog(
+                    onDismissRequest = { selectedMessageForOptions = null },
+                    title = {
+                        Text(
+                            text = if (isVoiceNote) "Note vocale" else "Options du message",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "\"$displayMsgText\"",
+                                fontSize = 13.sp,
+                                color = Color.DarkGray,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                            // Reply Button
+                            TextButton(
+                                onClick = {
+                                    replyingToMessage = ReplyTarget(senderName = targetSenderName, messageText = displayMsgText)
+                                    selectedMessageForOptions = null
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Reply, contentDescription = null, tint = Color(0xFF007A5E))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("💬 Répondre / Citer", color = Color(0xFF007A5E), fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+
+                            // Delete Button
+                            TextButton(
+                                onClick = {
+                                    activeChatSession?.id?.let { convId ->
+                                        viewModel.deleteMessage(convId, targetMsg.id)
+                                        Toast.makeText(context, "Message supprimé", Toast.LENGTH_SHORT).show()
+                                    }
+                                    selectedMessageForOptions = null
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("🗑️ Supprimer le message", color = Color.Red, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { selectedMessageForOptions = null }) {
+                            Text("Annuler", color = Color.Gray)
+                        }
+                    }
+                )
+            }
         }
     }
+}
 }
 
 @Composable
